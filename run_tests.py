@@ -71,9 +71,9 @@ CONCURRENT_REQUESTS: int = int( os.environ['PRIMO_F_TESTS__CONCURRENT_REQUESTS']
 
 def test_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """ Main controller; calls loop. 
-        Note: this method of concurrency should be less-efficient than one where a new item
-              is added to the queue whenever a job finishes, but I think the management will
-              be simpler. 
+        Note: this method of concurrency should be less-efficient 
+              than one where a new item is added to the queue whenever a job finishes, 
+              but I think the management will be simpler. 
         Called by ``if __name__ == '__main__':`` """
     processed_requested_tests_count = 0
     while processed_requested_tests_count < len( REQUESTED_TESTS ):
