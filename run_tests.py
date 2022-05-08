@@ -28,6 +28,8 @@ Usage...
 """
 
 import argparse, datetime, logging, os, pprint, time
+
+import trio
 from selenium import webdriver
 
 LOG_PATH: str = os.environ['PRIMO_F_TESTS__LOG_PATH']
@@ -64,25 +66,24 @@ RANDOM_TESTS = [  # TODO- load these from a script that pulls out some number of
 
 URL_PATTERN = 'https://bruknow.library.brown.edu/discovery/fulldisplay?docid=alma{mmsid}&context=L&vid=01BU_INST:BROWN&lang=en'
 
-CONCURRENT_REQUESTS: int = int( os.environ['PRIMO_F_TESTS__CONCURRENT_REQUESTS'] )
+CONCURRENT_COUNT: int = int( os.environ['PRIMO_F_TESTS__CONCURRENT_REQUESTS_COUNT'] )
 
 
 ## get to work ------------------------------------------------------
 
-def test_bibs( auth_id: str, password: str, server_type: str ) -> None:
+def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """ Main controller; calls loop. 
-        Note: this method of concurrency should be less-efficient 
+        Gets a set of bibs to process concurrently, processes them, then gets another set, etc...
+        The number of bibs to process concurrently is set by CONCURRENT_COUNT.
+        Note: this pattern of concurrency should be less efficient 
               than one where a new item is added to the queue whenever a job finishes, 
               but I think the management will be simpler. 
         Called by ``if __name__ == '__main__':`` """
     processed_requested_tests_count = 0
     while processed_requested_tests_count < len( REQUESTED_TESTS ):
-        bib_set: list = load_queue( REQUESTED_TESTS, processed_requested_tests_count, CONCURRENT_REQUESTS )
-        process_bib_set( bib_set )
-        processed_requested_tests_count += CONCURRENT_REQUESTS
-        # for bib in bib_set:
-        #     async process_bib( bib )
-        #     processed_requested_tests_count += CONCURRENT_REQUESTS
+        bib_set: list = load_queue( REQUESTED_TESTS, processed_requested_tests_count, CONCURRENT_COUNT )
+        trio.run( process_bib_set, bib_set )  # the trio way of passing the argument `bib_set` to the function `process_bib_set()`
+        processed_requested_tests_count += CONCURRENT_COUNT
     return
 
 
@@ -98,16 +99,21 @@ def load_queue( all_tests: list, processed_tests_count: int, concurrent_count: i
     return set_to_process
 
     
-def process_bib_set( bibs_data ):
-    """ TODO- 
-        - make async 
-        - write result of each check syncronously. """
+async def process_bib_set( bibs_data ):
+    """ Processes each bib-data element in bibs_data concurrently.
+        Returns after they're all finished. 
+        Called by check_bibs() """
     start_time = datetime.datetime.now()
-    for bib_data in bibs_data:
-        time.sleep( 1 )
+    async with trio.open_nursery() as nursery:
+        for bib_data in bibs_data:
+            nursery.start_soon( process_bib, bib_data )
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
     log.debug( f'elapsed, ``{elapsed}``')
+    return
+
+async def process_bib( bib_data ):
+    await trio.sleep( 1 )
     return
 
 
@@ -144,7 +150,7 @@ if __name__ == '__main__':
     auth_id: str = args['auth_id']
     password: str = args['password']
     server_type: str = args['server_type']
-    test_bibs( auth_id, password, server_type )
+    check_bibs( auth_id, password, server_type )
 
 
 
