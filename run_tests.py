@@ -66,7 +66,7 @@ RANDOM_TESTS = [  # TODO- load these from a script that pulls out some number of
 
 URL_PATTERN = 'https://bruknow.library.brown.edu/discovery/fulldisplay?docid=alma{mmsid}&context=L&vid=01BU_INST:BROWN&lang=en'
 
-CONCURRENT_COUNT: int = int( os.environ['PRIMO_F_TESTS__CONCURRENT_REQUESTS_COUNT'] )
+CONCURRENT_COUNT: int = int( os.environ['PRIMO_F_TESTS__CONCURRENT_REQUESTS'] )
 
 
 ## get to work ------------------------------------------------------
@@ -109,11 +109,15 @@ async def process_bib_set( bibs_data ):
             nursery.start_soon( process_bib, bib_data )
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
-    log.debug( f'elapsed, ``{elapsed}``')
+    log.debug( f'elapsed for set, ``{elapsed}``')
     return
 
 async def process_bib( bib_data ):
+    start_time = datetime.datetime.now()
     await trio.sleep( 1 )
+    end_time = datetime.datetime.now()
+    elapsed = end_time - start_time
+    log.debug( f'elapsed for bib, ``{elapsed}``')
     return
 
 
