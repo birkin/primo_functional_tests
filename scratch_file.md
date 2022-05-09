@@ -3,7 +3,7 @@ scratch-file...
 
 next...
 
-- add elapsed-time for individual bib, vs elapsed time for set.
+- √ add elapsed-time for individual bib, vs elapsed time for set.
 
 - replace the sleep with a simple selenium driver instantiation and access. this'll let us know if this concurrency is possible with selenium. I think it will be, given selenium's use of trio.
 

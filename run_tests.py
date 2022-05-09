@@ -27,7 +27,7 @@ Usage...
 - $ python3 ./run_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, datetime, logging, os, pprint, time
+import argparse, datetime, logging, os, pprint, random
 
 import trio
 from selenium import webdriver
@@ -79,11 +79,15 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
               than one where a new item is added to the queue whenever a job finishes, 
               but I think the management will be simpler. 
         Called by ``if __name__ == '__main__':`` """
+    start_time = datetime.datetime.now()
     processed_requested_tests_count = 0
     while processed_requested_tests_count < len( REQUESTED_TESTS ):
         bib_set: list = load_queue( REQUESTED_TESTS, processed_requested_tests_count, CONCURRENT_COUNT )
         trio.run( process_bib_set, bib_set )  # the trio way of passing the argument `bib_set` to the function `process_bib_set()`
         processed_requested_tests_count += CONCURRENT_COUNT
+    end_time = datetime.datetime.now()
+    elapsed = end_time - start_time
+    log.debug( f'elapsed total, ``{elapsed}``')
     return
 
 
@@ -113,11 +117,17 @@ async def process_bib_set( bibs_data ):
     return
 
 async def process_bib( bib_data ):
+    rndm_id: int = random.randint( 1000, 9999 )
+    rndm_slp1: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp1, ``{rndm_slp1}``' )
     start_time = datetime.datetime.now()
-    await trio.sleep( 1 )
+    await trio.sleep( rndm_slp1 )
+    log.debug( f'id, ``{rndm_id}``; message A')
+    rndm_slp2: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp2, ``{rndm_slp2}``' )
+    await trio.sleep( rndm_slp2 )
+    log.debug( f'id, ``{rndm_id}``; message B')
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
-    log.debug( f'elapsed for bib, ``{elapsed}``')
+    log.debug( f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``')
     return
 
 
