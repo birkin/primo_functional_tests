@@ -27,7 +27,7 @@ Usage...
 - $ python3 ./run_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, datetime, logging, os, pprint, random
+import argparse, datetime, json, logging, os, pprint, random
 
 import trio
 from selenium import webdriver
@@ -65,8 +65,8 @@ RANDOM_TESTS = [  # TODO- load these from a script that pulls out some number of
 ]
 
 URL_PATTERN = 'https://bruknow.library.brown.edu/discovery/fulldisplay?docid=alma{mmsid}&context=L&vid=01BU_INST:BROWN&lang=en'
-
 CONCURRENT_COUNT: int = int( os.environ['PRIMO_F_TESTS__CONCURRENT_REQUESTS'] )
+OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 
 
 ## get to work ------------------------------------------------------
@@ -80,6 +80,7 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
               but I think the management will be simpler. 
         Called by ``if __name__ == '__main__':`` """
     start_time = datetime.datetime.now()
+    create_output_file()
     processed_requested_tests_count = 0
     while processed_requested_tests_count < len( REQUESTED_TESTS ):
         bib_set: list = load_queue( REQUESTED_TESTS, processed_requested_tests_count, CONCURRENT_COUNT )
@@ -88,6 +89,13 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
     log.debug( f'elapsed total, ``{elapsed}``')
+    return
+
+
+def create_output_file() -> None:
+    with open( OUTPUT_PATH, 'w' ) as handler:
+        jsn = json.dumps( [] )
+        handler.write( jsn )
     return
 
 
@@ -127,7 +135,16 @@ async def process_bib( bib_data ):
     log.debug( f'id, ``{rndm_id}``; message B')
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
-    log.debug( f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``')
+    msg = f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``'
+    log.debug( msg )
+    with open( OUTPUT_PATH, 'r' ) as read_handler:
+        data: list = json.loads( read_handler.read() )
+
+        with open( OUTPUT_PATH, 'w' ) as write_handler:
+            data.append( msg )
+            jsn = json.dumps( data, indent=2 )
+            write_handler.write( jsn )
+
     return
 
 
