@@ -50,7 +50,7 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
-REQUESTED_TESTS = [  # TODO- load these from a spreadsheet    
+REQUESTED_TESTS: list = [  # TODO- load these from a spreadsheet    
     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
     {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
@@ -59,6 +59,9 @@ REQUESTED_TESTS = [  # TODO- load these from a spreadsheet
     {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
 ]
+
+REQUESTED_TESTS = list( range( 1, 1000 ) )
+log.debug( f'type(REQUESTED_TESTS), ``{type(REQUESTED_TESTS)}``' )
 
 RANDOM_TESTS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
     {'mmsid': 'foo', 'comment': 'bar'}
@@ -124,7 +127,10 @@ async def process_bib_set( bibs_data ):
     log.debug( f'elapsed for set, ``{elapsed}``')
     return
 
+
 async def process_bib( bib_data ):
+    """ Processes a bib.
+        Called by process_bib_set() """
     rndm_id: int = random.randint( 1000, 9999 )
     rndm_slp1: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp1, ``{rndm_slp1}``' )
     start_time = datetime.datetime.now()
@@ -137,14 +143,19 @@ async def process_bib( bib_data ):
     elapsed = end_time - start_time
     msg = f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``'
     log.debug( msg )
+    await write_result( msg, rndm_id )
+
+    return
+
+
+async def write_result( msg: str, log_id: int ) -> None:
     with open( OUTPUT_PATH, 'r' ) as read_handler:
         data: list = json.loads( read_handler.read() )
-
         with open( OUTPUT_PATH, 'w' ) as write_handler:
             data.append( msg )
             jsn = json.dumps( data, indent=2 )
             write_handler.write( jsn )
-
+    log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
     return
 
 
