@@ -15,8 +15,10 @@ next...
 2022-May-10
 
 without output-write lock... (1000 elements, 100 at a time)
-
 [10/May/2022 05:59:00] DEBUG [run_tests-check_bibs()::94] elapsed total, ``0:00:10.964812``
+
+with lock...
+[10/May/2022 06:18:50] DEBUG [run_tests-check_bibs()::94] elapsed total, ``0:00:10.966840``
 
 ---
 ---

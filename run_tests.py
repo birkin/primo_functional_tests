@@ -50,17 +50,17 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
-REQUESTED_TESTS: list = [  # TODO- load these from a spreadsheet    
-    {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
-    {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
-    {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
-    {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
-    {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
-]
+# REQUESTED_TESTS: list = [  # TODO- load these from a spreadsheet    
+#     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
+#     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+#     {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
+#     {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
+#     {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
+#     {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
+#     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
+# ]
 
-REQUESTED_TESTS = list( range( 1, 1000 ) )
+REQUESTED_TESTS = list( range( 1, 10000 ) )
 log.debug( f'type(REQUESTED_TESTS), ``{type(REQUESTED_TESTS)}``' )
 
 RANDOM_TESTS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
@@ -89,6 +89,7 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
         bib_set: list = load_queue( REQUESTED_TESTS, processed_requested_tests_count, CONCURRENT_COUNT )
         trio.run( process_bib_set, bib_set )  # the trio way of passing the argument `bib_set` to the function `process_bib_set()`
         processed_requested_tests_count += CONCURRENT_COUNT
+        log.debug( f'processed, ``{processed_requested_tests_count}``' )
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
     log.debug( f'elapsed total, ``{elapsed}``')
@@ -120,15 +121,16 @@ async def process_bib_set( bibs_data ):
         Called by check_bibs() """
     start_time = datetime.datetime.now()
     async with trio.open_nursery() as nursery:
+        lock = trio.Lock()
         for bib_data in bibs_data:
-            nursery.start_soon( process_bib, bib_data )
+            nursery.start_soon( process_bib, bib_data, lock )
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
     log.debug( f'elapsed for set, ``{elapsed}``')
     return
 
 
-async def process_bib( bib_data ):
+async def process_bib( bib_data, lock ):
     """ Processes a bib.
         Called by process_bib_set() """
     rndm_id: int = random.randint( 1000, 9999 )
@@ -143,18 +145,30 @@ async def process_bib( bib_data ):
     elapsed = end_time - start_time
     msg = f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``'
     log.debug( msg )
-    await write_result( msg, rndm_id )
+    await write_result( msg, rndm_id, lock )
 
     return
 
 
-async def write_result( msg: str, log_id: int ) -> None:
-    with open( OUTPUT_PATH, 'r' ) as read_handler:
-        data: list = json.loads( read_handler.read() )
-        with open( OUTPUT_PATH, 'w' ) as write_handler:
-            data.append( msg )
-            jsn = json.dumps( data, indent=2 )
-            write_handler.write( jsn )
+# async def write_result( msg: str, log_id: int, lock ) -> None:
+#     with open( OUTPUT_PATH, 'r' ) as read_handler:
+#         data: list = json.loads( read_handler.read() )
+#         with open( OUTPUT_PATH, 'w' ) as write_handler:
+#             data.append( msg )
+#             jsn = json.dumps( data, indent=2 )
+#             write_handler.write( jsn )
+#     log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
+#     return
+
+
+async def write_result( msg: str, log_id: int, lock ) -> None:
+    async with lock:
+        with open( OUTPUT_PATH, 'r' ) as read_handler:
+            data: list = json.loads( read_handler.read() )
+            with open( OUTPUT_PATH, 'w' ) as write_handler:
+                data.append( msg )
+                jsn = json.dumps( data, indent=2 )
+                write_handler.write( jsn )
     log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
     return
 
