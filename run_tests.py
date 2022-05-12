@@ -32,6 +32,9 @@ import argparse, datetime, json, logging, os, pprint, random
 import trio
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions
+
 
 LOG_PATH: str = os.environ['PRIMO_F_TESTS__LOG_PATH']
 
@@ -51,14 +54,19 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
+# REQUESTED_TESTS: list = [  # TODO- load these from a spreadsheet    
+#     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
+#     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+#     {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
+#     {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
+#     {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
+#     {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
+#     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
+# ]
+
 REQUESTED_TESTS: list = [  # TODO- load these from a spreadsheet    
     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
-    {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
-    {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
-    {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
-    {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
 ]
 
 RANDOM_TESTS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
@@ -88,6 +96,9 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
         trio.run( process_bib_set, bib_set )  # the trio way of passing the argument `bib_set` to the function `process_bib_set()`
         processed_requested_tests_count += CONCURRENT_COUNT
         log.debug( f'processed, ``{processed_requested_tests_count}``' )
+
+        # break
+
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
     log.debug( f'elapsed total, ``{elapsed}``')
@@ -122,54 +133,44 @@ async def process_bib_set( bibs_data ):
         lock = trio.Lock()
         for bib_data in bibs_data:
             nursery.start_soon( process_bib, bib_data, lock )
+
+            # break
+
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
     log.debug( f'elapsed for set, ``{elapsed}``')
     return
 
-
-# async def process_bib( bib_data, lock ):
-#     """ Processes a bib.
-#         Called by process_bib_set() """
-#     rndm_id: int = random.randint( 1000, 9999 )
-#     rndm_slp1: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp1, ``{rndm_slp1}``' )
-#     start_time = datetime.datetime.now()
-#     await trio.sleep( rndm_slp1 )
-#     log.debug( f'id, ``{rndm_id}``; message A')
-#     rndm_slp2: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp2, ``{rndm_slp2}``' )
-#     await trio.sleep( rndm_slp2 )
-#     log.debug( f'id, ``{rndm_id}``; message B')
-#     end_time = datetime.datetime.now()
-#     elapsed = end_time - start_time
-#     msg = f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``'
-#     log.debug( msg )
-#     await write_result( msg, rndm_id, lock )
-#     return
-
-
 async def process_bib( bib_data: dict, lock ):
     """ Processes a bib.
         Called by process_bib_set() """
     start_time = datetime.datetime.now()
-    log.debug( f'bib_data, ``{bib_data}``' )
-    rndm_id: int = random.randint( 1000, 9999 )
-    result: str = access_site( bib_data['mmsid'], rndm_id )
+    log_id: int = random.randint( 1000, 9999 )
+    log.debug( f'id, ``{log_id}``; bib_data, ``{bib_data}``' )
+    result: dict = access_site( bib_data['mmsid'], log_id )
     end_time = datetime.datetime.now()
-    elapsed = end_time - start_time
-    msg = f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``'
+    elapsed = str( end_time - start_time )
+    # msg = f'id, ``{log_id}``; elapsed for bib, ``{elapsed}``'
+    msg = {
+        'id': log_id,
+        'elapsed_for_bib': elapsed,
+        'check_data': result
+    }
     log.debug( msg )
-    await write_result( msg, rndm_id, lock )
+    await write_result( msg, log_id, lock )
     return
 
-def access_site( mms_id: str, log_id: str ) -> str:
+
+def access_site( mms_id: str, log_id: str ) -> dict:
     driver = webdriver.Firefox()  # type: ignore
     url = URL_PATTERN.replace( '{mmsid}', mms_id )
     driver.get( url )
-    title_elements = driver.find_element_by_class_name( "item-title" )
-    title_element = title_elements[0]
-    title = title_element.innerText  # WRONG -- MAKE RIGHT
+    WebDriverWait( driver, 30 ).until( expected_conditions.presence_of_element_located((By.CLASS_NAME, 'item-title')) )
+    title_element = driver.find_element(by=By.CLASS_NAME, value='item-title')
+    title = title_element.text
     log.debug( f'title, ``{title}``' )
-    return 'foo'
+    data = { 'title': title }
+    return data
 
 
 
