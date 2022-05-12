@@ -31,6 +31,7 @@ import argparse, datetime, json, logging, os, pprint, random
 
 import trio
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 
 LOG_PATH: str = os.environ['PRIMO_F_TESTS__LOG_PATH']
 
@@ -50,18 +51,15 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
-# REQUESTED_TESTS: list = [  # TODO- load these from a spreadsheet    
-#     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
-#     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
-#     {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
-#     {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
-#     {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
-#     {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
-#     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
-# ]
-
-REQUESTED_TESTS = list( range( 1, 10000 ) )
-log.debug( f'type(REQUESTED_TESTS), ``{type(REQUESTED_TESTS)}``' )
+REQUESTED_TESTS: list = [  # TODO- load these from a spreadsheet    
+    {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
+    {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+    {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
+    {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
+    {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
+    {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
+    {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
+]
 
 RANDOM_TESTS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
     {'mmsid': 'foo', 'comment': 'bar'}
@@ -130,35 +128,49 @@ async def process_bib_set( bibs_data ):
     return
 
 
-async def process_bib( bib_data, lock ):
+# async def process_bib( bib_data, lock ):
+#     """ Processes a bib.
+#         Called by process_bib_set() """
+#     rndm_id: int = random.randint( 1000, 9999 )
+#     rndm_slp1: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp1, ``{rndm_slp1}``' )
+#     start_time = datetime.datetime.now()
+#     await trio.sleep( rndm_slp1 )
+#     log.debug( f'id, ``{rndm_id}``; message A')
+#     rndm_slp2: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp2, ``{rndm_slp2}``' )
+#     await trio.sleep( rndm_slp2 )
+#     log.debug( f'id, ``{rndm_id}``; message B')
+#     end_time = datetime.datetime.now()
+#     elapsed = end_time - start_time
+#     msg = f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``'
+#     log.debug( msg )
+#     await write_result( msg, rndm_id, lock )
+#     return
+
+
+async def process_bib( bib_data: dict, lock ):
     """ Processes a bib.
         Called by process_bib_set() """
-    rndm_id: int = random.randint( 1000, 9999 )
-    rndm_slp1: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp1, ``{rndm_slp1}``' )
     start_time = datetime.datetime.now()
-    await trio.sleep( rndm_slp1 )
-    log.debug( f'id, ``{rndm_id}``; message A')
-    rndm_slp2: float = random.randint( 450, 550 ) / 1000; log.debug( f'id, ``{rndm_id}``rndm_slp2, ``{rndm_slp2}``' )
-    await trio.sleep( rndm_slp2 )
-    log.debug( f'id, ``{rndm_id}``; message B')
+    log.debug( f'bib_data, ``{bib_data}``' )
+    rndm_id: int = random.randint( 1000, 9999 )
+    result: str = access_site( bib_data['mmsid'], rndm_id )
     end_time = datetime.datetime.now()
     elapsed = end_time - start_time
     msg = f'id, ``{rndm_id}``; elapsed for bib, ``{elapsed}``'
     log.debug( msg )
     await write_result( msg, rndm_id, lock )
-
     return
 
+def access_site( mms_id: str, log_id: str ) -> str:
+    driver = webdriver.Firefox()  # type: ignore
+    url = URL_PATTERN.replace( '{mmsid}', mms_id )
+    driver.get( url )
+    title_elements = driver.find_element_by_class_name( "item-title" )
+    title_element = title_elements[0]
+    title = title_element.innerText  # WRONG -- MAKE RIGHT
+    log.debug( f'title, ``{title}``' )
+    return 'foo'
 
-# async def write_result( msg: str, log_id: int, lock ) -> None:
-#     with open( OUTPUT_PATH, 'r' ) as read_handler:
-#         data: list = json.loads( read_handler.read() )
-#         with open( OUTPUT_PATH, 'w' ) as write_handler:
-#             data.append( msg )
-#             jsn = json.dumps( data, indent=2 )
-#             write_handler.write( jsn )
-#     log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
-#     return
 
 
 async def write_result( msg: str, log_id: int, lock ) -> None:
@@ -171,22 +183,6 @@ async def write_result( msg: str, log_id: int, lock ) -> None:
                 write_handler.write( jsn )
     log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
     return
-
-
-# def process_bib( bib_dct: dict ) -> str:
-#     """ Controller for individual bib-processing.
-#         Called by test_bibs() """
-#     driver = webdriver.Firefox()  # type: ignore
-#     log.debug( 'driver created' )
-#     url: str = URL_PATTERN.replace( '{mmsid}', bib_dct['mmsid'] )
-#     log.debug( f'url, ``{url}``' )
-#     log.debug( 'about to call url' )
-#     driver.get( url )
-#     log.debug( 'about to get page_source' )
-#     generated_html: str = driver.page_source
-#     log.debug( f'generated_html, ``{generated_html}``' )
-#     # driver.find_element_by_id("nav-search").send_keys("Selenium")
-#     1/0
 
 
 ## -- script-caller helpers -----------------------------------------
