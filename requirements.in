@@ -1,3 +1,4 @@
 pip-tools
-selenium
-trio
+playwright==1.21.0
+selenium==4.1.5
+trio==0.20.0
