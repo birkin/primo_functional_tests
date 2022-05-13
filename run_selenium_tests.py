@@ -161,7 +161,7 @@ async def process_bib( bib_data: dict, lock ):
     return
 
 
-def access_site( mms_id: str, log_id: str ) -> dict:
+def access_site( mms_id: str, log_id: int ) -> dict:
     driver = webdriver.Firefox()  # type: ignore
     url = URL_PATTERN.replace( '{mmsid}', mms_id )
     driver.get( url )
@@ -174,7 +174,7 @@ def access_site( mms_id: str, log_id: str ) -> dict:
 
 
 
-async def write_result( msg: str, log_id: int, lock ) -> None:
+async def write_result( msg: dict, log_id: int, lock ) -> None:
     async with lock:
         with open( OUTPUT_PATH, 'r' ) as read_handler:
             data: list = json.loads( read_handler.read() )
