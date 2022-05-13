@@ -168,6 +168,7 @@ def access_site( mms_id: str, log_id: int ) -> dict:
     WebDriverWait( driver, 30 ).until( expected_conditions.presence_of_element_located((By.CLASS_NAME, 'item-title')) )
     title_element = driver.find_element(by=By.CLASS_NAME, value='item-title')
     title = title_element.text
+    driver.close()
     log.debug( f'title, ``{title}``' )
     data = { 'title': title }
     return data
