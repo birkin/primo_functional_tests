@@ -4,6 +4,8 @@
 #
 #    pip-compile ./requirements.in
 #
+anyio==3.6.1
+    # via httpcore
 async-generator==1.10
     # via
     #   trio
@@ -13,9 +15,14 @@ attrs==21.4.0
     #   outcome
     #   trio
 certifi==2021.10.8
-    # via urllib3
+    # via
+    #   httpcore
+    #   httpx
+    #   urllib3
 cffi==1.15.0
     # via cryptography
+charset-normalizer==2.0.12
+    # via httpx
 click==8.1.3
     # via pip-tools
 cryptography==37.0.2
@@ -24,10 +31,18 @@ cryptography==37.0.2
     #   urllib3
 greenlet==1.1.2
     # via playwright
-h11==0.13.0
-    # via wsproto
+h11==0.12.0
+    # via
+    #   httpcore
+    #   wsproto
+httpcore==0.14.7
+    # via httpx
+httpx==0.22.0
+    # via -r ./requirements.in
 idna==3.3
     # via
+    #   anyio
+    #   rfc3986
     #   trio
     #   urllib3
 outcome==1.1.0
@@ -46,12 +61,18 @@ pyopenssl==22.0.0
     # via urllib3
 pysocks==1.7.1
     # via urllib3
+rfc3986[idna2008]==1.5.0
+    # via httpx
 selenium==4.1.5
     # via -r ./requirements.in
 selenium-trio @ git+https://github.com/birkin/selenium-trio.git@3295ba313837d7b1993acf042bad1c7cadb1bfdf
     # via -r ./requirements.in
 sniffio==1.2.0
-    # via trio
+    # via
+    #   anyio
+    #   httpcore
+    #   httpx
+    #   trio
 sortedcontainers==2.4.0
     # via trio
 tomli==2.0.1
