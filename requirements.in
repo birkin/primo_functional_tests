@@ -1,5 +1,5 @@
 git+https://github.com/birkin/selenium-trio.git@3295ba313837d7b1993acf042bad1c7cadb1bfdf
-httpx
+httpx==0.22.0
 pip-tools
 playwright==1.21.0
 selenium==4.1.5
