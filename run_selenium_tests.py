@@ -35,9 +35,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 
-import selenium_trio
-from selenium_trio.remote_webdriver import TrioAsyncDriver
-
 
 LOG_PATH: str = os.environ['PRIMO_F_TESTS__LOG_PATH']
 
