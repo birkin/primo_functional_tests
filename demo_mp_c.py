@@ -2,14 +2,14 @@ import random, time
 from multiprocessing import Process, Queue, current_process, freeze_support
 from timeit import default_timer as timer
 
+import requests
+
+
+URL_PATTERN = 'https://bruknow.library.brown.edu/discovery/fulldisplay?docid=alma{mmsid}&context=L&vid=01BU_INST:BROWN&lang=en'
+
 #
 # Function run by worker processes
 #
-
-# def worker(input, output):
-#     for func, args in iter(input.get, 'STOP'):
-#         result = calculate(func, args)
-#         output.put(result)
 
 def web_worker(input, output):
     for element in iter(input.get, 'STOP'):
@@ -18,26 +18,16 @@ def web_worker(input, output):
         result = process_bib( bib_dict )
         output.put(result)
 
-#
-# Function used to calculate result
-#
 
-# def calculate(func, args):
-#     result = func(*args)
-#     return '%s says that %s%s = %s' % \
-#         (current_process().name, func.__name__, args, result)
-
-def process_bib(element: dict):
+def process_bib( element: dict ):
     start_time = timer()
-    # time.sleep( random.randint( 400, 600 ) / 1000 )  # sleep for about a half-second
-    time.sleep( random.randint( 1, 999 ) / 1000 )
-    result = f'will process ``{element}``'
-    # return '%s says that %s%s = %s' % \
-    #     (current_process().name, func.__name__, args, result)
-    return_val = f'process, ``{current_process().name}``; result, ``{result}``'
+    mmsid = element['mmsid']
+    url = URL_PATTERN.replace( '{mmsid}', mmsid )
+    r = requests.get( url )
     end_time = timer()
-    bib_elapsed = f'bib elapsed time: ``{end_time - start_time}``'
-    print( f'elapsed-bib-time, ``{bib_elapsed}``' )
+    elapsed: str = str( end_time - start_time)
+    print( f'bib elapsed time: ``{elapsed}``' )
+    return_val = f'process, ``{current_process().name}`` took, ``{elapsed}``'
     return return_val
 
 #
@@ -79,8 +69,8 @@ def test():
         task_queue.put('STOP')
 
     end_time = timer()
-    all_elapsed = f'all elapsed time: ``{end_time - start_time}``'
-    print( f'elapsed-all-time, ``{all_elapsed}``' )
+    elapsed: str = str( end_time - start_time)
+    print( f'all elapsed time: ``{elapsed}``' )
 
 
 
