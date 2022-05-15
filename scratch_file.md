@@ -3,11 +3,11 @@ scratch-file...
 
 next...
 
-- √ add elapsed-time for individual bib, vs elapsed time for set.
+- investigate multiprocessing.
 
-- replace the sleep with a simple selenium driver instantiation and access. this'll let us know if this concurrency is possible with selenium. I think it will be, given selenium's use of trio.
+- <https://linuxhint.com/python-multiprocessing-example/>
 
-- research and try out writing out the result of each test to a json file. although if i were really updating a google-sheet, that could postentially, if not likely, be done concurrently.
+- at: <https://docs.python.org/3.8/library/multiprocessing.html#multiprocessing-programming> ...at ``An example showing how to use queues to feed tasks to a collection of worker processes and collect the results:``
 
 ---
 ---
