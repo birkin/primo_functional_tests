@@ -28,8 +28,10 @@ Usage...
 """
 
 import argparse, datetime, json, logging, os, pprint, random
+from multiprocessing import Process, Queue, current_process, freeze_support
+from timeit import default_timer as timer
 
-import trio
+# import trio
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -64,43 +66,62 @@ METADATA_TO_TEST = {
 #     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
 # ]
 
-REQUESTED_TESTS: list = [  # TODO- load these from a spreadsheet    
+REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
 ]
 
-RANDOM_TESTS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
+RANDOM_CHECKS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
     {'mmsid': 'foo', 'comment': 'bar'}
 ]
 
 URL_PATTERN = 'https://bruknow.library.brown.edu/discovery/fulldisplay?docid=alma{mmsid}&context=L&vid=01BU_INST:BROWN&lang=en'
-CONCURRENT_COUNT: int = int( os.environ['PRIMO_F_TESTS__CONCURRENT_REQUESTS'] )
+NUMBER_OF_WORKERS: int = int( os.environ['PRIMO_F_TESTS__CONCURRENT_REQUESTS'] )
 OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 
 
 ## get to work ------------------------------------------------------
 
+
+def web_worker(input, output):
+    for element in iter(input.get, 'STOP'):
+        bib_dict: dict = element
+        # print( f'bib_dict, ``{bib_dict}``' )
+        result = process_bib( bib_dict )
+        output.put(result)
+
+
 def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
-    """ Main controller; calls loop. 
-        Gets a set of bibs to process concurrently, processes them, then gets another set, etc...
-        The number of bibs to process concurrently is set by CONCURRENT_COUNT.
-        Note: this pattern of concurrency should be less efficient 
-              than one where a new item is added to the queue whenever a job finishes, 
-              but I think the management will be simpler. 
+    """ Main controller.
+        - Instantiates task_queue. 
+
         Called by ``if __name__ == '__main__':`` """
-    start_time = datetime.datetime.now()
+    start_time = timer()
     create_output_file()
-    processed_requested_tests_count = 0
-    while processed_requested_tests_count < len( REQUESTED_TESTS ):
-        bib_set: list = load_queue( REQUESTED_TESTS, processed_requested_tests_count, CONCURRENT_COUNT )
-        trio.run( process_bib_set, bib_set )  # the trio way of passing the argument `bib_set` to the function `process_bib_set()`
-        processed_requested_tests_count += CONCURRENT_COUNT
-        log.debug( f'processed, ``{processed_requested_tests_count}``' )
 
-        # break
+    ## Create queues
+    task_queue = Queue()
+    done_queue = Queue()
 
-    end_time = datetime.datetime.now()
-    elapsed = end_time - start_time
+    ## Submit tasks
+    for task in REQUESTED_CHECKS:
+        task_queue.put( task )
+
+    ## Start worker processes
+    for i in range( NUMBER_OF_WORKERS ) :
+        Process( target=web_worker, args=(task_queue, done_queue) ).start()
+
+    ## Get and print results
+    print('Unordered results:')
+    for i in range( len(REQUESTED_CHECKS) ):
+        print('\t', done_queue.get())
+
+    ## Tell child processes to stop
+    for i in range( NUMBER_OF_WORKERS ):
+        task_queue.put( 'STOP' )
+
+    end_time = timer()
+    elapsed: str = str( end_time - start_time )
     log.debug( f'elapsed total, ``{elapsed}``')
     return
 
@@ -112,53 +133,54 @@ def create_output_file() -> None:
     return
 
 
-def load_queue( all_tests: list, processed_tests_count: int, concurrent_count: int ) -> list:
-    """ Loads up the next set of MMS-IDs to proces.
-        Called by test_bibs() """
-    # log.debug( f'all_tests, ``{pprint.pformat(all_tests)}``' )
-    index_start = processed_tests_count
-    index_end = index_start + concurrent_count
-    log.debug( f'index_start, ``{index_start}``; index_end, ``{index_end}``' )
-    set_to_process: list = all_tests[index_start: index_end]
-    log.debug( f'set_to_process, ``{pprint.pformat(set_to_process)}``' )
-    return set_to_process
+# def load_queue( all_tests: list, processed_tests_count: int, concurrent_count: int ) -> list:
+#     """ Loads up the next set of MMS-IDs to proces.
+#         Called by test_bibs() """
+#     # log.debug( f'all_tests, ``{pprint.pformat(all_tests)}``' )
+#     index_start = processed_tests_count
+#     index_end = index_start + concurrent_count
+#     log.debug( f'index_start, ``{index_start}``; index_end, ``{index_end}``' )
+#     set_to_process: list = all_tests[index_start: index_end]
+#     log.debug( f'set_to_process, ``{pprint.pformat(set_to_process)}``' )
+#     return set_to_process
 
     
-async def process_bib_set( bibs_data ):
-    """ Processes each bib-data element in bibs_data concurrently.
-        Returns after they're all finished. 
-        Called by check_bibs() """
-    start_time = datetime.datetime.now()
-    async with trio.open_nursery() as nursery:
-        lock = trio.Lock()
-        for bib_data in bibs_data:
-            nursery.start_soon( process_bib, bib_data, lock )
+# async def process_bib_set( bibs_data ):
+#     """ Processes each bib-data element in bibs_data concurrently.
+#         Returns after they're all finished. 
+#         Called by check_bibs() """
+#     start_time = timer()
+#     async with trio.open_nursery() as nursery:
+#         lock = trio.Lock()
+#         for bib_data in bibs_data:
+#             nursery.start_soon( process_bib, bib_data, lock )
 
-            # break
+#             # break
 
-    end_time = datetime.datetime.now()
-    elapsed = end_time - start_time
-    log.debug( f'elapsed for set, ``{elapsed}``')
-    return
+#     end_time = timer()
+#     elapsed: str = str( end_time - start_time)
+#     log.debug( f'elapsed for set, ``{elapsed}``')
+#     return
 
-async def process_bib( bib_data: dict, lock ):
+def process_bib( bib_data: dict ):
     """ Processes a bib.
         Called by process_bib_set() """
-    start_time = datetime.datetime.now()
+    start_time = timer()
     log_id: int = random.randint( 1000, 9999 )
     log.debug( f'id, ``{log_id}``; bib_data, ``{bib_data}``' )
     result: dict = access_site( bib_data['mmsid'], log_id )
-    end_time = datetime.datetime.now()
-    elapsed = str( end_time - start_time )
+    end_time = timer()
+    elapsed: str = str( end_time - start_time )
     # msg = f'id, ``{log_id}``; elapsed for bib, ``{elapsed}``'
-    msg = {
+    output_msg = {
         'id': log_id,
         'elapsed_for_bib': elapsed,
         'check_data': result
     }
-    log.debug( msg )
-    await write_result( msg, log_id, lock )
-    return
+    # log.debug( output_msg )
+    write_result( output_msg, log_id )
+    done_queue_message = f'process, ``{current_process().name}`` took, ``{elapsed}``'
+    return done_queue_message
 
 
 def access_site( mms_id: str, log_id: int ) -> dict:
@@ -174,17 +196,27 @@ def access_site( mms_id: str, log_id: int ) -> dict:
     return data
 
 
-
-async def write_result( msg: dict, log_id: int, lock ) -> None:
-    async with lock:
-        with open( OUTPUT_PATH, 'r' ) as read_handler:
-            data: list = json.loads( read_handler.read() )
-            with open( OUTPUT_PATH, 'w' ) as write_handler:
-                data.append( msg )
-                jsn = json.dumps( data, indent=2 )
-                write_handler.write( jsn )
+def write_result( msg: dict, log_id: int ) -> None:
+    with open( OUTPUT_PATH, 'r' ) as read_handler:
+        data: list = json.loads( read_handler.read() )
+        with open( OUTPUT_PATH, 'w' ) as write_handler:
+            data.append( msg )
+            jsn = json.dumps( data, indent=2 )
+            write_handler.write( jsn )
     log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
     return
+
+
+# async def write_result( msg: dict, log_id: int, lock ) -> None:
+#     async with lock:
+#         with open( OUTPUT_PATH, 'r' ) as read_handler:
+#             data: list = json.loads( read_handler.read() )
+#             with open( OUTPUT_PATH, 'w' ) as write_handler:
+#                 data.append( msg )
+#                 jsn = json.dumps( data, indent=2 )
+#                 write_handler.write( jsn )
+#     log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
+#     return
 
 
 ## -- script-caller helpers -----------------------------------------

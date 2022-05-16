@@ -34,7 +34,7 @@ def process_bib( element: dict ):
 #
 #
 
-def test():
+def process_all():
     start_time = timer()
     NUMBER_OF_PROCESSES = 4
     TASKS = [  
@@ -76,4 +76,4 @@ def test():
 
 if __name__ == '__main__':
     freeze_support()
-    test()
+    process_all()
