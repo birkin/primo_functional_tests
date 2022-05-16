@@ -111,10 +111,14 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     for i in range( NUMBER_OF_WORKERS ) :
         Process( target=web_worker, args=(task_queue, done_queue) ).start()
 
-    ## Get and print results
-    print('Unordered results:')
+    ## Get results
+    """ I don't really understand why, but the `done_queue.get()` is required, or the code errors.
+        Nothing subsequently uses anything from the done-queue... 
+        It feels like how 'await' is needed to actually trigger an async process -- but there's no async here.
+    """
+    log.debug( 'unordered process-num/title/elapsed results...' )
     for i in range( len(REQUESTED_CHECKS) ):
-        print('\t', done_queue.get())
+        log.debug( done_queue.get() )
 
     ## Tell child processes to stop
     for i in range( NUMBER_OF_WORKERS ):
@@ -179,7 +183,8 @@ def process_bib( bib_data: dict ):
     }
     # log.debug( output_msg )
     write_result( output_msg, log_id )
-    done_queue_message = f'process, ``{current_process().name}`` took, ``{elapsed}``'
+    title = f'{result["title"][0:10]}...'
+    done_queue_message = f'process, ``{current_process().name}``; for item, ``{title}``; took, ``{elapsed}``'
     return done_queue_message
 
 

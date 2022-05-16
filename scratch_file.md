@@ -3,7 +3,14 @@ scratch-file...
 
 next...
 
-- investigate multiprocessing.
+- √ investigate multiprocessing.
+
+- look into how to ensure there is a lock on the write-output process.
+
+- test not instantiating the web-worker with the output-queue, and remove references to it -- just out of curiosity.
+
+---
+---
 
 - <https://linuxhint.com/python-multiprocessing-example/>
 
