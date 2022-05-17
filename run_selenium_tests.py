@@ -83,15 +83,6 @@ OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 ## get to work ------------------------------------------------------
 
 
-def web_worker(input, output, lock) -> None:
-    for element in iter(input.get, 'STOP'):
-        bib_dict: dict = element
-        # print( f'bib_dict, ``{bib_dict}``' )
-        result = process_bib( bib_dict, lock )
-        output.put(result)
-    return
-
-
 def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """ Main controller.
         - Instantiates task_queue. 
@@ -108,15 +99,14 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     ## Start worker processes -------------------
     lock = Lock()
     for i in range( NUMBER_OF_WORKERS ) :
-        # Process( target=web_worker, args=(task_queue, done_queue) ).start()
-        Process( target=web_worker, args=(task_queue, done_queue, lock) ).start()
+        Process( target=manage_job_queue, args=(task_queue, done_queue, lock) ).start()
     ## Get results ------------------------------
     """ I don't really understand why, but the `done_queue.get()` is required, or the code errors.
         Nothing subsequently uses anything from the done-queue... 
         It feels like how 'await' is needed to actually trigger an async process -- but there's no async here.
         In other multiprocessing code examples, I've seen process.join() used similarly.
     """
-    log.info( 'unordered process-num/title/elapsed results...' )
+    log.info( 'about to initiate all done_queue.get() calls...' )
     for i in range( len(REQUESTED_CHECKS) ):
         log.info( 'about to call done_queue.get()' )
         done_queue.get()
@@ -124,6 +114,7 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """
     TODO- feels odd to be passing a string to do something like this. Investigate.
     """
+    log.info( 'about to send stop to all workers...' )
     for i in range( NUMBER_OF_WORKERS ):
         task_queue.put( 'STOP' )
     end_time = timer()
@@ -143,9 +134,20 @@ def create_output_file() -> None:
     return
 
 
+def manage_job_queue( input_queue, output_queue, lock ) -> None:
+    """ Iterates through input_queue data, passing each element to a processor-function.
+        Called by check_bibs() """
+    for element in iter(input_queue.get, 'STOP'):
+        bib_dict: dict = element
+        # print( f'bib_dict, ``{bib_dict}``' )
+        result = process_bib( bib_dict, lock )  # lock is passed along for eventual use when writing output.
+        output_queue.put( result )
+    return
+
+
 def process_bib( bib_data: dict, lock ):
     """ Processes a bib.
-        Called by process_bib_set() """
+        Called by manage_job_queue() """
     start_time = timer()
     log_id: int = random.randint( 1000, 9999 )
     log.info( f'id, ``{log_id}``; bib_data, ``{bib_data}``' )
