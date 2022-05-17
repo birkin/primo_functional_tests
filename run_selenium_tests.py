@@ -28,7 +28,7 @@ Usage...
 """
 
 import argparse, datetime, json, logging, os, pprint, random
-from multiprocessing import Process, Queue, current_process, freeze_support
+from multiprocessing import Process, Queue, Lock, current_process, freeze_support
 from timeit import default_timer as timer
 
 # import trio
@@ -56,20 +56,20 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
-REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
-    {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
-    {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
-    {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
-    {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
-    {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
-]
-
 # REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
 #     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
 #     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+#     {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
+#     {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
+#     {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
+#     {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
+#     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
 # ]
+
+REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
+    {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
+    {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+]
 
 RANDOM_CHECKS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
     {'mmsid': 'foo', 'comment': 'bar'}
@@ -83,11 +83,11 @@ OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 ## get to work ------------------------------------------------------
 
 
-def web_worker(input, output):
+def web_worker(input, output, lock):
     for element in iter(input.get, 'STOP'):
         bib_dict: dict = element
         # print( f'bib_dict, ``{bib_dict}``' )
-        result = process_bib( bib_dict )
+        result = process_bib( bib_dict, lock )
         output.put(result)
 
 
@@ -108,8 +108,14 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
         task_queue.put( task )
 
     ## Start worker processes
+    lock = Lock()
     for i in range( NUMBER_OF_WORKERS ) :
-        Process( target=web_worker, args=(task_queue, done_queue) ).start()
+        # Process( target=web_worker, args=(task_queue, done_queue) ).start()
+        Process( target=web_worker, args=(task_queue, done_queue, lock) ).start()
+
+
+# processes = [Process(target=task, args=(i, lock)) for i in range(20)]
+
 
     ## Get results
     """ I don't really understand why, but the `done_queue.get()` is required, or the code errors.
@@ -137,36 +143,7 @@ def create_output_file() -> None:
     return
 
 
-# def load_queue( all_tests: list, processed_tests_count: int, concurrent_count: int ) -> list:
-#     """ Loads up the next set of MMS-IDs to proces.
-#         Called by test_bibs() """
-#     # log.debug( f'all_tests, ``{pprint.pformat(all_tests)}``' )
-#     index_start = processed_tests_count
-#     index_end = index_start + concurrent_count
-#     log.debug( f'index_start, ``{index_start}``; index_end, ``{index_end}``' )
-#     set_to_process: list = all_tests[index_start: index_end]
-#     log.debug( f'set_to_process, ``{pprint.pformat(set_to_process)}``' )
-#     return set_to_process
-
-    
-# async def process_bib_set( bibs_data ):
-#     """ Processes each bib-data element in bibs_data concurrently.
-#         Returns after they're all finished. 
-#         Called by check_bibs() """
-#     start_time = timer()
-#     async with trio.open_nursery() as nursery:
-#         lock = trio.Lock()
-#         for bib_data in bibs_data:
-#             nursery.start_soon( process_bib, bib_data, lock )
-
-#             # break
-
-#     end_time = timer()
-#     elapsed: str = str( end_time - start_time)
-#     log.debug( f'elapsed for set, ``{elapsed}``')
-#     return
-
-def process_bib( bib_data: dict ):
+def process_bib( bib_data: dict, lock ):
     """ Processes a bib.
         Called by process_bib_set() """
     start_time = timer()
@@ -182,7 +159,7 @@ def process_bib( bib_data: dict ):
         'check_data': result
     }
     # log.debug( output_msg )
-    write_result( output_msg, log_id )
+    write_result( output_msg, log_id, lock )
     title = f'{result["title"][0:10]}...'
     done_queue_message = f'process, ``{current_process().name}``; for item, ``{title}``; took, ``{elapsed}``'
     return done_queue_message
@@ -201,14 +178,15 @@ def access_site( mms_id: str, log_id: int ) -> dict:
     return data
 
 
-def write_result( msg: dict, log_id: int ) -> None:
-    with open( OUTPUT_PATH, 'r' ) as read_handler:
-        data: list = json.loads( read_handler.read() )
-        with open( OUTPUT_PATH, 'w' ) as write_handler:
-            data.append( msg )
-            jsn = json.dumps( data, indent=2 )
-            write_handler.write( jsn )
-    log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
+def write_result( msg: dict, log_id: int, lock ) -> None:
+    with lock:
+        with open( OUTPUT_PATH, 'r' ) as read_handler:
+            data: list = json.loads( read_handler.read() )
+            with open( OUTPUT_PATH, 'w' ) as write_handler:
+                data.append( msg )
+                jsn = json.dumps( data, indent=2 )
+                write_handler.write( jsn )
+        log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
     return
 
 

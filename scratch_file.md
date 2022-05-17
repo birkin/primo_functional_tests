@@ -6,6 +6,7 @@ next...
 - √ investigate multiprocessing.
 
 - look into how to ensure there is a lock on the write-output process.
+    - <https://stackoverflow.com/a/61265000> shows example of how to lock.
 
 - test not instantiating the web-worker with the output-queue, and remove references to it -- just out of curiosity.
 
