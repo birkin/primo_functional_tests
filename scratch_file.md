@@ -3,12 +3,25 @@ scratch-file...
 
 next...
 
-- √ investigate multiprocessing.
-
 - look into how to ensure there is a lock on the write-output process.
     - <https://stackoverflow.com/a/61265000> shows example of how to lock.
 
 - test not instantiating the web-worker with the output-queue, and remove references to it -- just out of curiosity.
+
+---
+---
+
+# ## old! verify.
+# def _log_into_shib( self, driver ):
+#     """ Helper function for tests.
+#         Takes driver; logs in user; returns driver.
+#         Called by module test functions. """
+#     driver.find_element_by_id("username").clear()
+#     driver.find_element_by_id("username").send_keys( self.USERNAME )
+#     driver.find_element_by_id("password").clear()
+#     driver.find_element_by_id("password").send_keys( self.PASSWORD )
+#     driver.find_element_by_css_selector("button[type=\"submit\"]").click()
+#     return driver
 
 ---
 ---

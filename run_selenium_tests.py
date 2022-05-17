@@ -46,7 +46,7 @@ logging.basicConfig(
     format='[%(asctime)s] %(levelname)s [%(module)s-%(funcName)s()::%(lineno)d] %(message)s',
     datefmt='%d/%b/%Y %H:%M:%S' )
 log = logging.getLogger(__name__)
-log.debug( 'logging ready' )
+log.info( 'logging ready' )
 
 
 ## settings ---------------------------------------------------------
@@ -83,60 +83,60 @@ OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 ## get to work ------------------------------------------------------
 
 
-def web_worker(input, output, lock):
+def web_worker(input, output, lock) -> None:
     for element in iter(input.get, 'STOP'):
         bib_dict: dict = element
         # print( f'bib_dict, ``{bib_dict}``' )
         result = process_bib( bib_dict, lock )
         output.put(result)
+    return
 
 
 def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """ Main controller.
         - Instantiates task_queue. 
-
+        - Creates specified number of processes.
         Called by ``if __name__ == '__main__':`` """
     start_time = timer()
     create_output_file()
-
-    ## Create queues
+    ## Create queues ----------------------------
     task_queue = Queue()
     done_queue = Queue()
-
-    ## Submit tasks
+    ## Submit tasks -----------------------------
     for task in REQUESTED_CHECKS:
         task_queue.put( task )
-
-    ## Start worker processes
+    ## Start worker processes -------------------
     lock = Lock()
     for i in range( NUMBER_OF_WORKERS ) :
         # Process( target=web_worker, args=(task_queue, done_queue) ).start()
         Process( target=web_worker, args=(task_queue, done_queue, lock) ).start()
-
-
-# processes = [Process(target=task, args=(i, lock)) for i in range(20)]
-
-
-    ## Get results
+    ## Get results ------------------------------
     """ I don't really understand why, but the `done_queue.get()` is required, or the code errors.
         Nothing subsequently uses anything from the done-queue... 
         It feels like how 'await' is needed to actually trigger an async process -- but there's no async here.
+        In other multiprocessing code examples, I've seen process.join() used similarly.
     """
-    log.debug( 'unordered process-num/title/elapsed results...' )
+    log.info( 'unordered process-num/title/elapsed results...' )
     for i in range( len(REQUESTED_CHECKS) ):
-        log.debug( done_queue.get() )
-
-    ## Tell child processes to stop
+        log.info( 'about to call done_queue.get()' )
+        done_queue.get()
+    ## Tell child processes to stop -------------
+    """
+    TODO- feels odd to be passing a string to do something like this. Investigate.
+    """
     for i in range( NUMBER_OF_WORKERS ):
         task_queue.put( 'STOP' )
-
     end_time = timer()
     elapsed: str = str( end_time - start_time )
-    log.debug( f'elapsed total, ``{elapsed}``')
+    log.info( f'elapsed total, ``{elapsed}``')
     return
+
+    ## end def check_bibs()
 
 
 def create_output_file() -> None:
+    """ Creates json file that'll be used for output.
+        Called by check_bibs() """
     with open( OUTPUT_PATH, 'w' ) as handler:
         jsn = json.dumps( [] )
         handler.write( jsn )
@@ -148,7 +148,7 @@ def process_bib( bib_data: dict, lock ):
         Called by process_bib_set() """
     start_time = timer()
     log_id: int = random.randint( 1000, 9999 )
-    log.debug( f'id, ``{log_id}``; bib_data, ``{bib_data}``' )
+    log.info( f'id, ``{log_id}``; bib_data, ``{bib_data}``' )
     result: dict = access_site( bib_data['mmsid'], log_id )
     end_time = timer()
     elapsed: str = str( end_time - start_time )
@@ -158,7 +158,6 @@ def process_bib( bib_data: dict, lock ):
         'elapsed_for_bib': elapsed,
         'check_data': result
     }
-    # log.debug( output_msg )
     write_result( output_msg, log_id, lock )
     title = f'{result["title"][0:10]}...'
     done_queue_message = f'process, ``{current_process().name}``; for item, ``{title}``; took, ``{elapsed}``'
@@ -166,6 +165,9 @@ def process_bib( bib_data: dict, lock ):
 
 
 def access_site( mms_id: str, log_id: int ) -> dict:
+    """ Actually uses selenium.
+        This is a stand-in file that'll likely become a big suite of various tests.
+        Called by process_bib() """
     driver = webdriver.Firefox()  # type: ignore
     url = URL_PATTERN.replace( '{mmsid}', mms_id )
     driver.get( url )
@@ -173,12 +175,14 @@ def access_site( mms_id: str, log_id: int ) -> dict:
     title_element = driver.find_element(by=By.CLASS_NAME, value='item-title')
     title = title_element.text
     driver.close()
-    log.debug( f'title, ``{title}``' )
+    log.info( f'title, ``{title}``' )
     data = { 'title': title }
     return data
 
 
 def write_result( msg: dict, log_id: int, lock ) -> None:
+    """ Writes to json file with lock.
+        Called by process_bib() """
     with lock:
         with open( OUTPUT_PATH, 'r' ) as read_handler:
             data: list = json.loads( read_handler.read() )
@@ -186,20 +190,8 @@ def write_result( msg: dict, log_id: int, lock ) -> None:
                 data.append( msg )
                 jsn = json.dumps( data, indent=2 )
                 write_handler.write( jsn )
-        log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
+        log.info( f'id, ``{log_id}``; msg written, ``{msg}``' )
     return
-
-
-# async def write_result( msg: dict, log_id: int, lock ) -> None:
-#     async with lock:
-#         with open( OUTPUT_PATH, 'r' ) as read_handler:
-#             data: list = json.loads( read_handler.read() )
-#             with open( OUTPUT_PATH, 'w' ) as write_handler:
-#                 data.append( msg )
-#                 jsn = json.dumps( data, indent=2 )
-#                 write_handler.write( jsn )
-#     log.debug( f'id, ``{log_id}``; msg written, ``{msg}``' )
-#     return
 
 
 ## -- script-caller helpers -----------------------------------------
@@ -215,29 +207,8 @@ def parse_args() -> dict:
 
 if __name__ == '__main__':
     args: dict = parse_args()
-    log.debug( f'args, ```{args}```' )
+    log.info( f'starting args, ```{args}```' )
     auth_id: str = args['auth_id']
     password: str = args['password']
     server_type: str = args['server_type']
     check_bibs( auth_id, password, server_type )
-
-
-
-
-
-
-
-
-
-# ## old! verify.
-# def _log_into_shib( self, driver ):
-#     """ Helper function for tests.
-#         Takes driver; logs in user; returns driver.
-#         Called by module test functions. """
-#     driver.find_element_by_id("username").clear()
-#     driver.find_element_by_id("username").send_keys( self.USERNAME )
-#     driver.find_element_by_id("password").clear()
-#     driver.find_element_by_id("password").send_keys( self.PASSWORD )
-#     driver.find_element_by_css_selector("button[type=\"submit\"]").click()
-#     return driver
-
