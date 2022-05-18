@@ -3,8 +3,8 @@ scratch-file...
 
 next...
 
-- refactor output into bib-data, and item-data.
-- grab more data.
+- consider using Pool and map instead of explicit task-queues.
+    - may need that global lock.
 - begin logic for tests, given logged-in status and available item-data.
 
 ---
