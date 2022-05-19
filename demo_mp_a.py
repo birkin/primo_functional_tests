@@ -1,6 +1,6 @@
 import time
 from timeit import default_timer as timer
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 
 import requests
 
