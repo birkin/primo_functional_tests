@@ -2,7 +2,7 @@
 For 'lock' info, see <https://stackoverflow.com/a/61265000>.
 """
 
-import json, pprint, random, time, timeit
+import datetime, json, pprint, random, time, timeit
 from multiprocessing import current_process, Pool, Lock
 
 
@@ -25,17 +25,20 @@ def process_job( job ):
 
 
 def update_tracker( job, process_name, elapsed ):
+
     with lock_manager:
-        print( f'lock acquired by process, ``{process_name}``' )
-        msg = f'job, ``{job}`` completed by process, ``{process_name}`` in, ``{elapsed}``'
+        print( f'tracker update starting: time, ``{datetime.datetime.now()}``; process, ``{process_name}``; job, ``{job}``' )
+
+        jlist = []
         with open( TRACKER_FILE_PATH, 'r' ) as reader:
             jlist = json.loads( reader.read() )
-            jlist.append( msg )
-            with open( TRACKER_FILE_PATH, 'w' ) as writer:
-                jsn = json.dumps( jlist, indent=2 )
-                writer.write( jsn ) 
-        print( 'tracker updated' )
-        print( f'lock released by process, ``{process_name}``' )
+        msg = f'job, ``{job}`` completed by process, ``{process_name}`` in, ``{elapsed}``'
+        jlist.append( msg )
+        with open( TRACKER_FILE_PATH, 'w' ) as writer:
+            jsn = json.dumps( jlist, indent=2 )
+            writer.write( jsn ) 
+
+        print( f'tracker update ending: time, ``{datetime.datetime.now()}``; process, ``{process_name}``; job, ``{job}``' )
     return
 
 def initialize_pool( lock ):
