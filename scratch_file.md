@@ -3,12 +3,7 @@ scratch-file...
 
 next...
 
-- consider using Pool and map instead of explicit task-queues.
-    - may need that global lock.
-
-update: ok, curent demo_mp_f.py code uses Pool, and demonstrates the problem with the lack of a lock.
-
-next... implement the (likely global) lock.
+- replace working Lock() with Semaphore( 0 ) and test.
 
 - begin logic for tests, given logged-in status and available item-data.
 
