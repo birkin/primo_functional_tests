@@ -83,70 +83,24 @@ OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 ## get to work ------------------------------------------------------
 
 
-# def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
-#     """ Main controller.
-#         - Instantiates task_queue. 
-#         - Creates specified number of processes.
-#         Called by ``if __name__ == '__main__':`` """
-#     start_time = timer()
-#     create_output_file()
-#     ## Create queues ----------------------------
-#     task_queue = Queue()
-#     done_queue = Queue()
-#     ## Submit tasks -----------------------------
-#     for task in REQUESTED_CHECKS:
-#         task_queue.put( task )
-#     ## Start worker processes -------------------
-#     lock = Lock()
-#     for i in range( NUMBER_OF_WORKERS ) :
-#         Process( target=manage_job_queue, args=(task_queue, done_queue, lock) ).start()
-#     ## Get results ------------------------------
-#     """ I don't really understand why, but the `done_queue.get()` is required, or the code errors.
-#         Nothing subsequently uses anything from the done-queue... 
-#         It feels like how 'await' is needed to actually trigger an async process -- but there's no async here.
-#         In other multiprocessing code examples, I've seen process.join() used similarly.
-#     """
-#     log.info( 'about to initiate all done_queue.get() calls...' )
-#     for i in range( len(REQUESTED_CHECKS) ):
-#         log.info( 'about to call done_queue.get()' )
-#         done_queue.get()
-#     ## Tell child processes to stop -------------
-#     """
-#     TODO- feels odd to be passing a string to do something like this. Investigate.
-#     """
-#     log.info( 'about to send stop to all workers...' )
-#     for i in range( NUMBER_OF_WORKERS ):
-#         task_queue.put( 'STOP' )
-#     end_time = timer()
-#     elapsed: str = str( end_time - start_time )
-#     log.info( f'elapsed total, ``{elapsed}``')
-#     return
-
-#     ## end def check_bibs()
-
-
 def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """ Main controller.
         Instantiates pool of workers, and sends jobs to them. 
         Called by ``if __name__ == '__main__':`` """
-    start_time = timer()
+    start_time = datetime.datetime.now()
     create_output_file()
-
-    ## Start worker processes -------------------
+    ## start worker processes -------------------
     lock = Lock()
     jobs: list = REQUESTED_CHECKS
     with Pool( NUMBER_OF_WORKERS, initializer=initialize_pool, initargs=[lock] ) as workers:
         rslt = workers.map( process_bib, jobs )
-
-    end_time = timer()
+        log.debug( f'rslt, ``{rslt}``' )
+    ## wind down --------------------------------
+    end_time = datetime.datetime.now()
     elapsed: str = str( end_time - start_time )
     log.info( f'elapsed total, ``{elapsed}``')
     update_tracker( start_time, end_time, elapsed, jobs  )
     return
-
-    ## end def check_bibs()
-
-
 
 
 def create_output_file() -> None:
@@ -220,7 +174,7 @@ def write_result( msg: dict, log_id: int ) -> None:
     return
 
 
-def update_tracker( start_time, end_time, elapsed: str, jobs: list ) -> None:
+def update_tracker( start_time: datetime.datetime, end_time:datetime.datetime, elapsed: str, jobs: list ) -> None:
     """ Adds info to tracker after all updates are done.
         Called by check_bibs() """
     data: list = []
@@ -228,8 +182,8 @@ def update_tracker( start_time, end_time, elapsed: str, jobs: list ) -> None:
         data: list = json.loads( read_handler.read() )
     final_data = { 
         'meta': { 
-            'start_time': start_time,
-            'end_time': end_time,
+            'start_time': str( start_time ),
+            'end_time': str( end_time ),
             'total-elapsed': elapsed,
             'number_of_workers': NUMBER_OF_WORKERS,
             'number_of_jobs': len( jobs )
