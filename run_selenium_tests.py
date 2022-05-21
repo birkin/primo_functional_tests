@@ -24,14 +24,13 @@ Notes...
 Usage...
 - cd to `primo_functional_tests` directory.
 - $ source ../env/bin/activate
-- $ python3 ./run_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
+- $ python3 ./run_selenium_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
 import argparse, datetime, json, logging, os, pprint, random
 from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
-# import trio
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -50,7 +49,6 @@ log.info( 'logging ready' )
 
 
 ## settings ---------------------------------------------------------
-
 METADATA_TO_TEST = {
     'possible_locations': [ 'rock', 'scili', 'annex' ],
     'possible_statuses': [ 'Out of library', 'Available' ]
@@ -84,7 +82,7 @@ OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 
 
 def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
-    """ Main controller.
+    """ Main manager.
         Instantiates pool of workers, and sends jobs to them. 
         Called by ``if __name__ == '__main__':`` """
     start_time = datetime.datetime.now()
@@ -114,8 +112,9 @@ def create_output_file() -> None:
 
 def initialize_pool( lock ):
     """ Sets up global lock_manager that each worker has access to.
-        Used to synchronously update the tracker for now.
-        Eventually if a gsheet is updated the lock won't be necessary.
+        (Pool `initializer` argument must be a callable, so I can't create a global lock and pass it directly.)
+        Used to synchronously update the tracker for now...
+        ...eventually if a gsheet is updated the lock won't be necessary.
         Called by  check_bibs() """
     global lock_manager
     lock_manager = lock
@@ -124,14 +123,13 @@ def initialize_pool( lock ):
 
 def process_bib( bib_data: dict ):
     """ Processes a bib.
-        Called by manage_job_queue() """
+        Called by check_bibs() """
     start_time = timer()
     log_id: int = random.randint( 1000, 9999 )
     log.info( f'id, ``{log_id}``; bib_data, ``{bib_data}``' )
     result: dict = access_site( bib_data['mmsid'], log_id )
     end_time = timer()
     elapsed: str = str( end_time - start_time )
-    # msg = f'id, ``{log_id}``; elapsed for bib, ``{elapsed}``'
     output_msg = {
         'id': log_id,
         'elapsed_for_bib': elapsed,
