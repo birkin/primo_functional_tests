@@ -6,8 +6,8 @@ import datetime, json, pprint, random, time, timeit
 from multiprocessing import current_process, Pool, Lock
 
 
-JOBS = list( range(1000) )
-NUM_WORKERS = 100
+JOBS = list( range(100) )
+NUM_WORKERS = 50
 TRACKER_FILE_PATH = '../output_file/test_output.json'
 
 
@@ -44,6 +44,7 @@ def update_tracker( job, process_name, elapsed ):
 def initialize_pool( lock ):
     global lock_manager
     lock_manager = lock
+    return lock_manager
 
 if __name__ == '__main__':
     start = timeit.default_timer()

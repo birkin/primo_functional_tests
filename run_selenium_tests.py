@@ -28,7 +28,7 @@ Usage...
 """
 
 import argparse, datetime, json, logging, os, pprint, random
-from multiprocessing import Process, Queue, Lock, current_process, freeze_support
+from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
 # import trio
@@ -56,20 +56,20 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
-REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
-    {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
-    {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
-    {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
-    {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
-    {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
-]
-
 # REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
 #     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
 #     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+#     {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
+#     {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
+#     {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
+#     {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
+#     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
 # ]
+
+REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
+    {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
+    {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+]
 
 RANDOM_CHECKS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
     {'mmsid': 'foo', 'comment': 'bar'}
@@ -83,46 +83,70 @@ OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 ## get to work ------------------------------------------------------
 
 
+# def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
+#     """ Main controller.
+#         - Instantiates task_queue. 
+#         - Creates specified number of processes.
+#         Called by ``if __name__ == '__main__':`` """
+#     start_time = timer()
+#     create_output_file()
+#     ## Create queues ----------------------------
+#     task_queue = Queue()
+#     done_queue = Queue()
+#     ## Submit tasks -----------------------------
+#     for task in REQUESTED_CHECKS:
+#         task_queue.put( task )
+#     ## Start worker processes -------------------
+#     lock = Lock()
+#     for i in range( NUMBER_OF_WORKERS ) :
+#         Process( target=manage_job_queue, args=(task_queue, done_queue, lock) ).start()
+#     ## Get results ------------------------------
+#     """ I don't really understand why, but the `done_queue.get()` is required, or the code errors.
+#         Nothing subsequently uses anything from the done-queue... 
+#         It feels like how 'await' is needed to actually trigger an async process -- but there's no async here.
+#         In other multiprocessing code examples, I've seen process.join() used similarly.
+#     """
+#     log.info( 'about to initiate all done_queue.get() calls...' )
+#     for i in range( len(REQUESTED_CHECKS) ):
+#         log.info( 'about to call done_queue.get()' )
+#         done_queue.get()
+#     ## Tell child processes to stop -------------
+#     """
+#     TODO- feels odd to be passing a string to do something like this. Investigate.
+#     """
+#     log.info( 'about to send stop to all workers...' )
+#     for i in range( NUMBER_OF_WORKERS ):
+#         task_queue.put( 'STOP' )
+#     end_time = timer()
+#     elapsed: str = str( end_time - start_time )
+#     log.info( f'elapsed total, ``{elapsed}``')
+#     return
+
+#     ## end def check_bibs()
+
+
 def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """ Main controller.
-        - Instantiates task_queue. 
-        - Creates specified number of processes.
+        Instantiates pool of workers, and sends jobs to them. 
         Called by ``if __name__ == '__main__':`` """
     start_time = timer()
     create_output_file()
-    ## Create queues ----------------------------
-    task_queue = Queue()
-    done_queue = Queue()
-    ## Submit tasks -----------------------------
-    for task in REQUESTED_CHECKS:
-        task_queue.put( task )
+
     ## Start worker processes -------------------
     lock = Lock()
-    for i in range( NUMBER_OF_WORKERS ) :
-        Process( target=manage_job_queue, args=(task_queue, done_queue, lock) ).start()
-    ## Get results ------------------------------
-    """ I don't really understand why, but the `done_queue.get()` is required, or the code errors.
-        Nothing subsequently uses anything from the done-queue... 
-        It feels like how 'await' is needed to actually trigger an async process -- but there's no async here.
-        In other multiprocessing code examples, I've seen process.join() used similarly.
-    """
-    log.info( 'about to initiate all done_queue.get() calls...' )
-    for i in range( len(REQUESTED_CHECKS) ):
-        log.info( 'about to call done_queue.get()' )
-        done_queue.get()
-    ## Tell child processes to stop -------------
-    """
-    TODO- feels odd to be passing a string to do something like this. Investigate.
-    """
-    log.info( 'about to send stop to all workers...' )
-    for i in range( NUMBER_OF_WORKERS ):
-        task_queue.put( 'STOP' )
+    jobs: list = REQUESTED_CHECKS
+    with Pool( NUMBER_OF_WORKERS, initializer=initialize_pool, initargs=[lock] ) as workers:
+        rslt = workers.map( process_bib, jobs )
+
     end_time = timer()
     elapsed: str = str( end_time - start_time )
     log.info( f'elapsed total, ``{elapsed}``')
+    update_tracker( start_time, end_time, elapsed, jobs  )
     return
 
     ## end def check_bibs()
+
+
 
 
 def create_output_file() -> None:
@@ -134,18 +158,17 @@ def create_output_file() -> None:
     return
 
 
-def manage_job_queue( input_queue, output_queue, lock ) -> None:
-    """ Iterates through input_queue data, passing each element to a processor-function.
-        Called by check_bibs() """
-    for element in iter(input_queue.get, 'STOP'):
-        bib_dict: dict = element
-        # print( f'bib_dict, ``{bib_dict}``' )
-        result = process_bib( bib_dict, lock )  # lock is passed along for eventual use when writing output.
-        output_queue.put( result )
-    return
+def initialize_pool( lock ):
+    """ Sets up global lock_manager that each worker has access to.
+        Used to synchronously update the tracker for now.
+        Eventually if a gsheet is updated the lock won't be necessary.
+        Called by  check_bibs() """
+    global lock_manager
+    lock_manager = lock
+    return lock_manager
 
 
-def process_bib( bib_data: dict, lock ):
+def process_bib( bib_data: dict ):
     """ Processes a bib.
         Called by manage_job_queue() """
     start_time = timer()
@@ -160,7 +183,7 @@ def process_bib( bib_data: dict, lock ):
         'elapsed_for_bib': elapsed,
         'check_data': result
     }
-    write_result( output_msg, log_id, lock )
+    write_result( output_msg, log_id )
     title = f'{result["title"][0:10]}...'
     done_queue_message = f'process, ``{current_process().name}``; for item, ``{title}``; took, ``{elapsed}``'
     return done_queue_message
@@ -182,17 +205,41 @@ def access_site( mms_id: str, log_id: int ) -> dict:
     return data
 
 
-def write_result( msg: dict, log_id: int, lock ) -> None:
+def write_result( msg: dict, log_id: int ) -> None:
     """ Writes to json file with lock.
         Called by process_bib() """
-    with lock:
+    with lock_manager:
+        data: list = []
         with open( OUTPUT_PATH, 'r' ) as read_handler:
             data: list = json.loads( read_handler.read() )
-            with open( OUTPUT_PATH, 'w' ) as write_handler:
-                data.append( msg )
-                jsn = json.dumps( data, indent=2 )
-                write_handler.write( jsn )
+        with open( OUTPUT_PATH, 'w' ) as write_handler:
+            data.append( msg )
+            jsn = json.dumps( data, indent=2 )
+            write_handler.write( jsn )
         log.info( f'id, ``{log_id}``; msg written, ``{msg}``' )
+    return
+
+
+def update_tracker( start_time, end_time, elapsed: str, jobs: list ) -> None:
+    """ Adds info to tracker after all updates are done.
+        Called by check_bibs() """
+    data: list = []
+    with open( OUTPUT_PATH, 'r' ) as read_handler:
+        data: list = json.loads( read_handler.read() )
+    final_data = { 
+        'meta': { 
+            'start_time': start_time,
+            'end_time': end_time,
+            'total-elapsed': elapsed,
+            'number_of_workers': NUMBER_OF_WORKERS,
+            'number_of_jobs': len( jobs )
+            },
+        'results': data
+        }
+    with open( OUTPUT_PATH, 'w' ) as write_handler:
+        jsn = json.dumps( final_data, indent=2 )
+        write_handler.write( jsn )
+    log.info( 'tracker updated' )
     return
 
 
