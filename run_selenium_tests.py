@@ -27,7 +27,7 @@ Usage...
 - $ python3 ./run_selenium_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, datetime, json, logging, os, pprint, random
+import argparse, datetime, difflib, json, logging, os, pprint, random
 from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
@@ -54,20 +54,21 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
-# REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
-#     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
-#     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
-#     {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
-#     {'mmsid': '991007439769706966', 'comment': 'Audio | two-items | Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
-#     {'mmsid': '991023827329706966', 'comment': 'one-item | Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
-#     {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
-#     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
-# ]
-
 REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+    {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
+    {'mmsid': '991007439769706966', 'comment': 'Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
+    {'mmsid': '991023827329706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
+    {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
+    {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
 ]
+
+# REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
+#     # {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
+#     {'mmsid': '991038334049706966', 'comment': 'foo'},
+#     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+# ]
 
 RANDOM_CHECKS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
     {'mmsid': 'foo', 'comment': 'bar'}
@@ -97,7 +98,7 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     end_time = datetime.datetime.now()
     elapsed: str = str( end_time - start_time )
     log.info( f'elapsed total, ``{elapsed}``')
-    update_tracker( start_time, end_time, elapsed, jobs  )
+    make_final_tracker_update( start_time, end_time, elapsed, jobs  )
     return
 
 
@@ -121,24 +122,42 @@ def initialize_pool( lock ):
     return lock_manager
 
 
-def process_bib( bib_data: dict ):
+def process_bib( bib_data: dict ) -> None:
     """ Processes a bib.
         Called by check_bibs() """
     start_time = timer()
     log_id: int = random.randint( 1000, 9999 )
+    mmsid = bib_data['mmsid']
     log.info( f'id, ``{log_id}``; bib_data, ``{bib_data}``' )
-    result: dict = access_site( bib_data['mmsid'], log_id )
+    result: dict = access_site( mmsid, log_id )
     end_time = timer()
     elapsed: str = str( end_time - start_time )
-    output_msg = {
-        'id': log_id,
-        'elapsed_for_bib': elapsed,
-        'check_data': result
+    title_check_result: bool = check_title( bib_data['comment'], result['title'], log_id )
+    summary = {
+        mmsid: {
+            'title_found': result['title'],
+            'elapsed': elapsed,
+            'process': current_process().name,
+            'checks': {
+                'expected_title_found': title_check_result
+            }
+        }
     }
-    write_result( output_msg, log_id )
-    title = f'{result["title"][0:10]}...'
-    done_queue_message = f'process, ``{current_process().name}``; for item, ``{title}``; took, ``{elapsed}``'
-    return done_queue_message
+    write_result( summary, log_id )
+    return 
+
+
+def check_title( expected: str, found: str, log_id: str ) -> bool:
+    """ Checks that found title closely matches expected title from spreadsheet.
+        Called by process_bib() """
+    match_score: float = difflib.SequenceMatcher( None, expected, found ).ratio()
+    log.debug( f'log_id, ``{log_id}``; expected title, ``{expected}``' )
+    log.debug( f'log_id, ``{log_id}``; found title, ``{found}``' )
+    log.debug( f'log_id, ``{log_id}``; title match score, ``{match_score}``' )
+    title_found = True
+    if match_score < 0.8:
+        title_found = False
+    return title_found
 
 
 def access_site( mms_id: str, log_id: int ) -> dict:
@@ -172,7 +191,7 @@ def write_result( msg: dict, log_id: int ) -> None:
     return
 
 
-def update_tracker( start_time: datetime.datetime, end_time:datetime.datetime, elapsed: str, jobs: list ) -> None:
+def make_final_tracker_update( start_time: datetime.datetime, end_time:datetime.datetime, elapsed: str, jobs: list ) -> None:
     """ Adds info to tracker after all updates are done.
         Called by check_bibs() """
     data: list = []
