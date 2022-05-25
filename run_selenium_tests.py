@@ -54,21 +54,21 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
-REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
-    {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
-    {'mmsid': '991007439769706966', 'comment': 'Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
-    {'mmsid': '991023827329706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
-    {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
-    {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
-]
-
 # REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
-#     # {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
-#     {'mmsid': '991038334049706966', 'comment': 'foo'},
+#     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
 #     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+#     {'mmsid': '991014485429706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. Special anniversary ed.'},
+#     {'mmsid': '991007439769706966', 'comment': 'Zen and the Art of Motorcycle Maintenance an Inquiry into Values'},
+#     {'mmsid': '991023827329706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: an Inquiry into Values. 25th anniversary ed.'},
+#     {'mmsid': '991033548039706966', 'comment': 'Zen and the Art of Motorcycle Maintenance: An Inquiry into Values'},
+#     {'mmsid': '991043286359006966', 'comment': 'The Buddha in the Machine: Art, Technology, and the Meeting of East and West.'},
 # ]
+
+REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
+    # {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
+    {'mmsid': '991038334049706966', 'comment': 'foo'},
+    {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
+]
 
 RANDOM_CHECKS = [  # TODO- load these from a script that pulls out some number of random mmsids from the POD export-data
     {'mmsid': 'foo', 'comment': 'bar'}
@@ -126,16 +126,17 @@ def process_bib( bib_data: dict ) -> None:
     """ Processes a bib.
         Called by check_bibs() """
     start_time = timer()
-    log_id: int = random.randint( 1000, 9999 )
+    log_id: str = str( random.randint(1000, 9999) )
     mmsid = bib_data['mmsid']
-    log.info( f'id, ``{log_id}``; bib_data, ``{bib_data}``' )
-    result: dict = access_site( mmsid, log_id )
+    log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
+    drvr = access_site( mmsid, log_id )
+    title_check_result: str = check_title( drvr, bib_data['comment'], log_id )
+    drvr.close()
     end_time = timer()
     elapsed: str = str( end_time - start_time )
-    title_check_result: bool = check_title( bib_data['comment'], result['title'], log_id )
     summary = {
         mmsid: {
-            'title_found': result['title'],
+            'title_expected': bib_data['comment'],
             'elapsed': elapsed,
             'process': current_process().name,
             'checks': {
@@ -147,36 +148,33 @@ def process_bib( bib_data: dict ) -> None:
     return 
 
 
-def check_title( expected: str, found: str, log_id: str ) -> bool:
-    """ Checks that found title closely matches expected title from spreadsheet.
-        Called by process_bib() """
-    match_score: float = difflib.SequenceMatcher( None, expected, found ).ratio()
-    log.debug( f'log_id, ``{log_id}``; expected title, ``{expected}``' )
-    log.debug( f'log_id, ``{log_id}``; found title, ``{found}``' )
-    log.debug( f'log_id, ``{log_id}``; title match score, ``{match_score}``' )
-    title_found = True
-    if match_score < 0.8:
-        title_found = False
-    return title_found
-
-
-def access_site( mms_id: str, log_id: int ) -> dict:
+def access_site( mms_id: str, log_id: str ):
     """ Actually uses selenium.
-        This is a stand-in file that'll likely become a big suite of various tests.
+        Just returns driver containing the get-url result.
         Called by process_bib() """
     driver = webdriver.Firefox()  # type: ignore
     url = URL_PATTERN.replace( '{mmsid}', mms_id )
     driver.get( url )
+    return driver
+
+
+def check_title( driver, expected: str, log_id: str ) -> str:
+    """ Finds title, and checks that found title closely matches expected title from spreadsheet.
+        Called by process_bib() """
     WebDriverWait( driver, 30 ).until( expected_conditions.presence_of_element_located((By.CLASS_NAME, 'item-title')) )
     title_element = driver.find_element(by=By.CLASS_NAME, value='item-title')
-    title = title_element.text
-    driver.close()
-    log.info( f'title, ``{title}``' )
-    data = { 'title': title }
-    return data
+    found_title = title_element.text
+    match_score: float = difflib.SequenceMatcher( None, expected, found_title ).ratio()
+    log.debug( f'log_id, ``{log_id}``; expected title, ``{expected}``' )
+    log.debug( f'log_id, ``{log_id}``; found title, ``{found_title}``' )
+    log.debug( f'log_id, ``{log_id}``; title match score, ``{match_score}``' )
+    check_result = 'found'
+    if match_score < 0.8:
+        check_result = f'not-found; found ``{found_title}``'
+    return check_result
 
 
-def write_result( msg: dict, log_id: int ) -> None:
+def write_result( msg: dict, log_id: str ) -> None:
     """ Writes to json file with lock.
         Called by process_bib() """
     with lock_manager:
