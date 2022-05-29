@@ -3,9 +3,12 @@ scratch-file...
 
 next...
 
-- replace working Lock() with Semaphore( 0 ) and test.
 
-- begin logic for tests, given logged-in status and available item-data.
+- while I have the existing error, improve error-handling so the process is closed.
+
+- handle dict correctly.
+
+- replace working Lock() with Semaphore( 0 ) and test.
 
 ---
 ---
