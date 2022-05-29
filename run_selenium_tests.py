@@ -54,6 +54,9 @@ METADATA_TO_TEST = {
     'possible_statuses': [ 'Out of library', 'Available' ]
 }
 
+CREDENTIALS: dict = json.loads( os.environ['PRIMO_F_TESTS__SHEET_CREDENTIALS_JSON'] )
+SPREADSHEET_NAME = os.environ['PRIMO_F_TESTS__SHEET_NAME']
+
 # REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
 #     {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
 #     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
@@ -65,8 +68,7 @@ METADATA_TO_TEST = {
 # ]
 
 REQUESTED_CHECKS: list = [  # TODO- load these from a spreadsheet    
-    # {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
-    {'mmsid': '991038334049706966', 'comment': 'foo'},
+    {'mmsid': '991038334049706966', 'comment': 'Guidebook to Zen and the Art of Motorcycle Maintenance'},
     {'mmsid': '991034268659706966', 'comment': 'Zen and Now: on the Trail of Robert Pirsig and Zen and the Art of Motorcycle Maintenance'},
 ]
 
@@ -87,10 +89,12 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
         Instantiates pool of workers, and sends jobs to them. 
         Called by ``if __name__ == '__main__':`` """
     start_time = datetime.datetime.now()
+    ## setup ------------------------------------
     create_output_file()
+    jobs: list = get_requested_checks()
     ## start worker processes -------------------
     lock = Lock()
-    jobs: list = REQUESTED_CHECKS
+
     with Pool( NUMBER_OF_WORKERS, initializer=initialize_pool, initargs=[lock] ) as workers:
         rslt = workers.map( process_bib, jobs )
         log.debug( f'rslt, ``{rslt}``' )
@@ -100,6 +104,21 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     log.info( f'elapsed total, ``{elapsed}``')
     make_final_tracker_update( start_time, end_time, elapsed, jobs  )
     return
+
+
+# def get_requested_checks() -> list:
+#     """ Grabs mms_ids to check from google-sheet.
+#         Called by check_bibs() """
+#     # jobs: list = REQUESTED_CHECKS
+#     gc = gspread.service_account_from_dict( CREDENTIALS )
+#     sh = gc.open( SPREADSHEET_NAME )
+
+#     return jobs
+
+
+def get_requested_checks() -> list:
+    jobs: list = REQUESTED_CHECKS
+    return jobs
 
 
 def create_output_file() -> None:
