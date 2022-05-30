@@ -27,7 +27,7 @@ Usage...
 - $ python3 ./run_selenium_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, datetime, difflib, json, logging, os, pprint, random
+import argparse, datetime, difflib, json, logging, os, pprint, random, sys
 from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
@@ -99,6 +99,7 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     with Pool( NUMBER_OF_WORKERS, initializer=initialize_pool, initargs=[lock] ) as workers:
         rslt = workers.map( process_bib, jobs )
         log.debug( f'rslt, ``{rslt}``' )
+
     ## wind down --------------------------------
     end_time = datetime.datetime.now()
     elapsed: str = str( end_time - start_time )
@@ -152,6 +153,7 @@ def process_bib( bib_data: dict ) -> None:
         mmsid = bib_data['mms_id']
         log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
         drvr = access_site( mmsid, log_id )
+        log.debug( f'type(drvr), ``{type(drvr)}``' )
         title_check_result: str = check_title( drvr, bib_data['title'], log_id )
         drvr.close()
         end_time = timer()
@@ -168,8 +170,8 @@ def process_bib( bib_data: dict ) -> None:
         }
         write_result( summary, log_id )
     except Exception as e:
-        log.exception( 'Problem processing bib; traceback follows; processing continues.' )
-        raise Exception( repr(e) )
+        log.exception( f'Problem processing bib; err, ``{repr(e)}``; traceback follows; processing continues.' )
+        # sys.exit()
     return 
 
 
@@ -177,9 +179,19 @@ def access_site( mms_id: str, log_id: str ):
     """ Actually uses selenium.
         Just returns driver containing the get-url result.
         Called by process_bib() """
-    driver = webdriver.Firefox()  # type: ignore
-    url = URL_PATTERN.replace( '{mmsid}', mms_id )
-    driver.get( url )
+    driver = None
+    try:
+        driver = webdriver.Firefox()  # type: ignore
+    except:
+        log.exception( f'Problem instantiating driver; traceback follows. sys.exit() called' )
+    try:
+        url = URL_PATTERN.replace( '{mmsid}', mms_id )
+        driver.get( url )
+    except:
+        log.exception( f'Problem accessing initial url; traceback follows; processing continues.' )
+        log.debug( 'hereA' )
+        driver.close()
+        log.debug( 'hereB' )
     return driver
 
 
