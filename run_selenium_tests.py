@@ -150,9 +150,10 @@ def process_bib( bib_data: dict ) -> None:
     try:
         start_time = timer()
         log_id: str = str( random.randint(1000, 9999) )
-        mmsid: str = str( bib_data['mms_id'] )
         log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
-        drvr = access_site( mmsid, log_id )
+        mmsid: str = str( bib_data['mms_id'] )
+        url = URL_PATTERN.replace( '{mmsid}', mmsid )
+        drvr = access_site( url, log_id )
         log.debug( f'type(drvr), ``{type(drvr)}``' )
         title_check_result: str = check_title( drvr, bib_data['title'], log_id )
         drvr.close()
@@ -162,6 +163,7 @@ def process_bib( bib_data: dict ) -> None:
             mmsid: {
                 'title_expected': bib_data['title'],
                 'elapsed': elapsed,
+                'url': url,
                 'process': current_process().name,
                 'checks': {
                     'expected_title_found': title_check_result
@@ -175,13 +177,12 @@ def process_bib( bib_data: dict ) -> None:
     return 
 
 
-def access_site( mms_id: str, log_id: str ):
+def access_site( url: str, log_id: str ):
     """ Actually uses selenium.
         Just returns driver containing the get-url result.
         Called by process_bib() """
     driver = webdriver.Firefox()  # type: ignore
     try:
-        url = URL_PATTERN.replace( '{mmsid}', mms_id )
         driver.get( url )
     except:
         log.exception( f'Problem accessing initial url; traceback follows; processing continues.' )
