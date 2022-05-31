@@ -27,7 +27,7 @@ Usage...
 - $ python3 ./run_selenium_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, datetime, difflib, json, logging, os, pprint, random, sys
+import argparse, copy, datetime, difflib, json, logging, os, pprint, random, sys
 from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
@@ -152,9 +152,10 @@ def process_bib( bib_data: dict ) -> None:
         log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
         mmsid: str = str( bib_data['mms_id'] )
         url = URL_PATTERN.replace( '{mmsid}', mmsid )
-        drvr_init = webdriver.Firefox()  # type: ignore
-        drvr = access_site( drvr_init, url, log_id )
+        drvr = webdriver.Firefox()  # type: ignore
         log.debug( f'type(drvr), ``{type(drvr)}``' )
+        drvr = access_site( drvr, url, log_id )
+        assert drvr == drvr
         title_check_result: str = check_title( drvr, bib_data['title'], log_id )
         drvr.close()
         end_time = timer()
@@ -173,7 +174,6 @@ def process_bib( bib_data: dict ) -> None:
         write_result( summary, log_id )
     except Exception as e:
         log.exception( f'Problem processing bib; err, ``{repr(e)}``; traceback follows; processing continues.' )
-        # sys.exit()
     return 
 
 

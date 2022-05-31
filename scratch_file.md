@@ -5,9 +5,15 @@ next...
 
 √ replace working Lock() with Semaphore( 0 ) and test.
 
-- while I have the existing error, improve error-handling so the process is closed. (continue)
+√ while I have the existing error, improve error-handling so the process is closed. (continue)
 
-- handle dict correctly.
+√ handle dict correctly.
+
+- work on writing TO gsheet.
+
+- identfiy record info.
+
+- separate non-logged in & logged-in tests
 
 
 ---
