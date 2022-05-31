@@ -95,16 +95,26 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     jobs: list = get_requested_checks()
     ## start worker processes -------------------
     lock = Lock()
-
     with Pool( NUMBER_OF_WORKERS, initializer=initialize_pool, initargs=[lock] ) as workers:
-        rslt = workers.map( process_bib, jobs )
+        rslt = workers.map( process_bib, jobs )  # reminder that `process_bib` is a function
         log.debug( f'rslt, ``{rslt}``' )
-
     ## wind down --------------------------------
     end_time = datetime.datetime.now()
     elapsed: str = str( end_time - start_time )
     log.info( f'elapsed total, ``{elapsed}``')
     make_final_tracker_update( start_time, end_time, elapsed, jobs  )
+    return
+
+
+## setup helpers ----------------------------------------------------
+
+
+def create_output_file() -> None:
+    """ Creates json file that'll be used for output.
+        Called by check_bibs() """
+    with open( OUTPUT_PATH, 'w' ) as handler:
+        jsn = json.dumps( [] )
+        handler.write( jsn )
     return
 
 
@@ -119,20 +129,6 @@ def get_requested_checks() -> list:
     return list_of_dicts[0:2]
 
 
-# def get_requested_checks() -> list:
-#     jobs: list = REQUESTED_CHECKS
-#     return jobs
-
-
-def create_output_file() -> None:
-    """ Creates json file that'll be used for output.
-        Called by check_bibs() """
-    with open( OUTPUT_PATH, 'w' ) as handler:
-        jsn = json.dumps( [] )
-        handler.write( jsn )
-    return
-
-
 def initialize_pool( lock ):
     """ Sets up global lock_manager that each worker has access to.
         (Pool `initializer` argument must be a callable, so I can't create a global lock and pass it directly.)
@@ -144,6 +140,9 @@ def initialize_pool( lock ):
     return lock_manager
 
 
+## bib-manager ------------------------------------------------------
+
+
 def process_bib( bib_data: dict ) -> None:
     """ Processes a bib.
         Called by check_bibs() """
@@ -153,7 +152,8 @@ def process_bib( bib_data: dict ) -> None:
         log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
         mmsid: str = str( bib_data['mms_id'] )
         url = URL_PATTERN.replace( '{mmsid}', mmsid )
-        drvr = access_site( url, log_id )
+        drvr_init = webdriver.Firefox()  # type: ignore
+        drvr = access_site( drvr_init, url, log_id )
         log.debug( f'type(drvr), ``{type(drvr)}``' )
         title_check_result: str = check_title( drvr, bib_data['title'], log_id )
         drvr.close()
@@ -177,11 +177,14 @@ def process_bib( bib_data: dict ) -> None:
     return 
 
 
-def access_site( url: str, log_id: str ):
+## bib-processing helpers -------------------------------------------
+
+
+def access_site( driver, url: str, log_id: str ):
     """ Actually uses selenium.
         Just returns driver containing the get-url result.
         Called by process_bib() """
-    driver = webdriver.Firefox()  # type: ignore
+    # driver = webdriver.Firefox()  # type: ignore
     try:
         driver.get( url )
     except:
@@ -223,6 +226,9 @@ def write_result( msg: dict, log_id: str ) -> None:
     return
 
 
+## post-bib-check write ---------------------------------------------
+
+
 def make_final_tracker_update( start_time: datetime.datetime, end_time:datetime.datetime, elapsed: str, jobs: list ) -> None:
     """ Adds info to tracker after all updates are done.
         Called by check_bibs() """
@@ -248,6 +254,7 @@ def make_final_tracker_update( start_time: datetime.datetime, end_time:datetime.
 
 ## -- script-caller helpers -----------------------------------------
 
+
 def parse_args() -> dict:
     """ Parses arguments when module called via __main__ """
     parser = argparse.ArgumentParser( description='Required: auth_id and password (for logging in to BruKnow), and server_type.' )
@@ -264,3 +271,6 @@ if __name__ == '__main__':
     password: str = args['password']
     server_type: str = args['server_type']
     check_bibs( auth_id, password, server_type )
+
+
+## EOF
