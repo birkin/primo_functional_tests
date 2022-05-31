@@ -27,10 +27,11 @@ Usage...
 - $ python3 ./run_selenium_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, datetime, difflib, json, logging, os, pprint, random
+import argparse, datetime, difflib, json, logging, os, pprint, random, sys
 from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
+import gspread
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -98,6 +99,7 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     with Pool( NUMBER_OF_WORKERS, initializer=initialize_pool, initargs=[lock] ) as workers:
         rslt = workers.map( process_bib, jobs )
         log.debug( f'rslt, ``{rslt}``' )
+
     ## wind down --------------------------------
     end_time = datetime.datetime.now()
     elapsed: str = str( end_time - start_time )
@@ -106,19 +108,20 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     return
 
 
-# def get_requested_checks() -> list:
-#     """ Grabs mms_ids to check from google-sheet.
-#         Called by check_bibs() """
-#     # jobs: list = REQUESTED_CHECKS
-#     gc = gspread.service_account_from_dict( CREDENTIALS )
-#     sh = gc.open( SPREADSHEET_NAME )
-
-#     return jobs
-
-
 def get_requested_checks() -> list:
-    jobs: list = REQUESTED_CHECKS
-    return jobs
+    """ Grabs mms_ids to check from google-sheet.
+        Called by check_bibs() """
+    # jobs: list = REQUESTED_CHECKS
+    credentialed_connection = gspread.service_account_from_dict( CREDENTIALS )
+    sheet = credentialed_connection.open( SPREADSHEET_NAME )
+    wrksheet = sheet.worksheet( 'requested_checks' )
+    list_of_dicts = wrksheet.get_all_records()
+    return list_of_dicts[0:2]
+
+
+# def get_requested_checks() -> list:
+#     jobs: list = REQUESTED_CHECKS
+#     return jobs
 
 
 def create_output_file() -> None:
@@ -144,26 +147,31 @@ def initialize_pool( lock ):
 def process_bib( bib_data: dict ) -> None:
     """ Processes a bib.
         Called by check_bibs() """
-    start_time = timer()
-    log_id: str = str( random.randint(1000, 9999) )
-    mmsid = bib_data['mmsid']
-    log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
-    drvr = access_site( mmsid, log_id )
-    title_check_result: str = check_title( drvr, bib_data['comment'], log_id )
-    drvr.close()
-    end_time = timer()
-    elapsed: str = str( end_time - start_time )
-    summary = {
-        mmsid: {
-            'title_expected': bib_data['comment'],
-            'elapsed': elapsed,
-            'process': current_process().name,
-            'checks': {
-                'expected_title_found': title_check_result
+    try:
+        start_time = timer()
+        log_id: str = str( random.randint(1000, 9999) )
+        mmsid: str = str( bib_data['mms_id'] )
+        log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
+        drvr = access_site( mmsid, log_id )
+        log.debug( f'type(drvr), ``{type(drvr)}``' )
+        title_check_result: str = check_title( drvr, bib_data['title'], log_id )
+        drvr.close()
+        end_time = timer()
+        elapsed: str = str( end_time - start_time )
+        summary = {
+            mmsid: {
+                'title_expected': bib_data['title'],
+                'elapsed': elapsed,
+                'process': current_process().name,
+                'checks': {
+                    'expected_title_found': title_check_result
+                }
             }
         }
-    }
-    write_result( summary, log_id )
+        write_result( summary, log_id )
+    except Exception as e:
+        log.exception( f'Problem processing bib; err, ``{repr(e)}``; traceback follows; processing continues.' )
+        # sys.exit()
     return 
 
 
@@ -172,8 +180,14 @@ def access_site( mms_id: str, log_id: str ):
         Just returns driver containing the get-url result.
         Called by process_bib() """
     driver = webdriver.Firefox()  # type: ignore
-    url = URL_PATTERN.replace( '{mmsid}', mms_id )
-    driver.get( url )
+    try:
+        url = URL_PATTERN.replace( '{mmsid}', mms_id )
+        driver.get( url )
+    except:
+        log.exception( f'Problem accessing initial url; traceback follows; processing continues.' )
+        log.debug( 'hereA' )
+        driver.close()
+        log.debug( 'hereB' )
     return driver
 
 

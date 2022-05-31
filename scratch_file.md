@@ -3,12 +3,46 @@ scratch-file...
 
 next...
 
-- replace working Lock() with Semaphore( 0 ) and test.
+√ replace working Lock() with Semaphore( 0 ) and test.
 
-- begin logic for tests, given logged-in status and available item-data.
+- while I have the existing error, improve error-handling so the process is closed. (continue)
+
+- handle dict correctly.
+
 
 ---
 ---
+
+timing semaphore vs lock
+- 1000 jobs w/100 workers, 
+- each job randomly takes between .4 and .6 seconds
+- initial uncounted run (setting cache?)
+- running 5 times, 
+- dropping the high and low
+- averaging 3
+- rounding down to hundredth
+
+Lock()
+x6.70
+x6.78
+
+6.71
+6.71
+6.76
+score: 6.726
+
+Semaphore(1)
+x6.67
+x6.84
+
+6.70
+6.73
+6.75
+score: 6.726
+
+---
+---
+
 
 # ## old! verify.
 # def _log_into_shib( self, driver ):

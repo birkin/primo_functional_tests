@@ -3,11 +3,11 @@ For 'lock' info, see <https://stackoverflow.com/a/61265000>.
 """
 
 import datetime, json, pprint, random, time, timeit
-from multiprocessing import current_process, Pool, Lock
+from multiprocessing import current_process, Pool, Lock, Semaphore
 
 
-JOBS = list( range(100) )
-NUM_WORKERS = 50
+JOBS = list( range(1000) )
+NUM_WORKERS = 100
 TRACKER_FILE_PATH = '../output_file/test_output.json'
 
 
@@ -58,7 +58,8 @@ if __name__ == '__main__':
         delay: float = ( random.randint(400, 600) / 1000 )
         jobs.append( delay )
     ## start workers and send jobs --------------
-    lock = Lock()
+    # lock = Lock()
+    lock = Semaphore( 1 )
     with Pool( NUM_WORKERS, initializer=initialize_pool, initargs=[lock] ) as workers:
         rslt = workers.map( process_job, jobs )
     ## wind down --------------------------------
