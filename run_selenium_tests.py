@@ -150,7 +150,7 @@ def process_bib( bib_data: dict ) -> None:
     try:
         start_time = timer()
         log_id: str = str( random.randint(1000, 9999) )
-        mmsid = bib_data['mms_id']
+        mmsid: str = str( bib_data['mms_id'] )
         log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
         drvr = access_site( mmsid, log_id )
         log.debug( f'type(drvr), ``{type(drvr)}``' )
@@ -160,7 +160,7 @@ def process_bib( bib_data: dict ) -> None:
         elapsed: str = str( end_time - start_time )
         summary = {
             mmsid: {
-                'title_expected': bib_data['comment'],
+                'title_expected': bib_data['title'],
                 'elapsed': elapsed,
                 'process': current_process().name,
                 'checks': {
@@ -179,11 +179,7 @@ def access_site( mms_id: str, log_id: str ):
     """ Actually uses selenium.
         Just returns driver containing the get-url result.
         Called by process_bib() """
-    driver = None
-    try:
-        driver = webdriver.Firefox()  # type: ignore
-    except:
-        log.exception( f'Problem instantiating driver; traceback follows. sys.exit() called' )
+    driver = webdriver.Firefox()  # type: ignore
     try:
         url = URL_PATTERN.replace( '{mmsid}', mms_id )
         driver.get( url )
