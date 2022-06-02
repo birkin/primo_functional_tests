@@ -27,7 +27,7 @@ Usage...
 - $ python3 ./run_selenium_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, copy, datetime, difflib, json, logging, os, pprint, random, sys
+import argparse, datetime, difflib, json, logging, os, pprint, random, time
 from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
@@ -89,20 +89,25 @@ def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """ Main manager.
         Instantiates pool of workers, and sends jobs to them. 
         Called by ``if __name__ == '__main__':`` """
-    start_time = datetime.datetime.now()
+    start_time_all = datetime.datetime.now()
     ## setup ------------------------------------
     create_output_file()
-    jobs: list = get_requested_checks()
+    # jobs: list = get_requested_checks()
+    ( jobs, elapsed_get_data ) = get_requested_checks()
     ## start worker processes -------------------
+    start_time_bibs = datetime.datetime.now()
     lock = Lock()
     with Pool( NUMBER_OF_WORKERS, initializer=initialize_pool, initargs=[lock] ) as workers:
         rslt = workers.map( process_bib, jobs )  # reminder that `process_bib` is a function
         log.debug( f'rslt, ``{rslt}``' )
-    ## wind down --------------------------------
+    ## stamp report -----------------------------
     end_time = datetime.datetime.now()
-    elapsed: str = str( end_time - start_time )
-    log.info( f'elapsed total, ``{elapsed}``')
-    make_final_tracker_update( start_time, end_time, elapsed, jobs  )
+    elapsed_bibs: str = str( end_time - start_time_bibs )
+    elapsed_total: str = str( end_time - start_time_all )
+    log.info( f'elapsed_bib_total, ``{elapsed_total}``')
+    final_data: dict = make_final_tracker_update( start_time_all, end_time, elapsed_get_data, elapsed_bibs, elapsed_total, jobs  )
+    ## write report to gsheet -------------------
+    update_gsheet( final_data )
     return
 
 
@@ -118,15 +123,17 @@ def create_output_file() -> None:
     return
 
 
-def get_requested_checks() -> list:
+def get_requested_checks() -> tuple:
     """ Grabs mms_ids to check from google-sheet.
         Called by check_bibs() """
-    # jobs: list = REQUESTED_CHECKS
+    start_time = timer()
     credentialed_connection = gspread.service_account_from_dict( CREDENTIALS )
     sheet = credentialed_connection.open( SPREADSHEET_NAME )
     wrksheet = sheet.worksheet( 'requested_checks' )
     list_of_dicts = wrksheet.get_all_records()
-    return list_of_dicts[0:2]
+    end_time = timer()
+    elapsed: str = str( end_time - start_time )
+    return ( list_of_dicts[0:2] , elapsed )
 
 
 def initialize_pool( lock ):
@@ -150,27 +157,31 @@ def process_bib( bib_data: dict ) -> None:
         start_time = timer()
         log_id: str = str( random.randint(1000, 9999) )
         log.info( f'log_id, ``{log_id}``; bib_data, ``{bib_data}``' )
+        ## instantiate driver -------------------
+        drvr = webdriver.Firefox()  # type: ignore
+        ## access bib page ----------------------
         mmsid: str = str( bib_data['mms_id'] )
         url = URL_PATTERN.replace( '{mmsid}', mmsid )
-        drvr = webdriver.Firefox()  # type: ignore
-        log.debug( f'type(drvr), ``{type(drvr)}``' )
-        drvr = access_site( drvr, url, log_id )
-        assert drvr == drvr
+        access_site( drvr, url, log_id )
+        ## title check --------------------------
         title_check_result: str = check_title( drvr, bib_data['title'], log_id )
+        ## close driver -------------------------
         drvr.close()
+        ## prepare bib-report -------------------
         end_time = timer()
         elapsed: str = str( end_time - start_time )
         summary = {
             mmsid: {
                 'title_expected': bib_data['title'],
-                'elapsed': elapsed,
                 'url': url,
                 'process': current_process().name,
                 'checks': {
                     'expected_title_found': title_check_result
-                }
+                },
+                'elapsed': elapsed
             }
         }
+        ## write bib-report to big file ---------
         write_result( summary, log_id )
     except Exception as e:
         log.exception( f'Problem processing bib; err, ``{repr(e)}``; traceback follows; processing continues.' )
@@ -229,7 +240,13 @@ def write_result( msg: dict, log_id: str ) -> None:
 ## post-bib-check write ---------------------------------------------
 
 
-def make_final_tracker_update( start_time: datetime.datetime, end_time:datetime.datetime, elapsed: str, jobs: list ) -> None:
+def make_final_tracker_update( 
+    start_time: datetime.datetime, 
+    end_time:datetime.datetime, 
+    elapsed_get_data: str, 
+    elapsed_bibs: str, 
+    elapsed_total:str, 
+    jobs: list ) -> dict:
     """ Adds info to tracker after all updates are done.
         Called by check_bibs() """
     data: list = []
@@ -239,9 +256,11 @@ def make_final_tracker_update( start_time: datetime.datetime, end_time:datetime.
         'meta': { 
             'start_time': str( start_time ),
             'end_time': str( end_time ),
-            'total-elapsed': elapsed,
             'number_of_workers': NUMBER_OF_WORKERS,
-            'number_of_jobs': len( jobs )
+            'number_of_jobs': len( jobs ),
+            'elapsed_get_data': elapsed_get_data,
+            'elapsed_check_bibs': elapsed_bibs,
+            'elapsed_total': elapsed_total,
             },
         'results': data
         }
@@ -249,6 +268,20 @@ def make_final_tracker_update( start_time: datetime.datetime, end_time:datetime.
         jsn = json.dumps( final_data, indent=2 )
         write_handler.write( jsn )
     log.info( 'tracker updated' )
+    return final_data
+
+
+## update gsheet ----------------------------------------------------
+
+
+def update_gsheet( final_data: dict ) -> None:
+    """ (Will) Writes data to gsheet.
+        Called by check_bibs() """
+    start_time = timer()
+    time.sleep( .5 )
+    end_time = timer()
+    elapsed_write_data: str = str( end_time - start_time )
+    log.debug( f'elapsed_write_data, ``{elapsed_write_data}``' )
     return
 
 
