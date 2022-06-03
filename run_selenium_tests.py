@@ -278,7 +278,27 @@ def update_gsheet( final_data: dict ) -> None:
     """ (Will) Writes data to gsheet.
         Called by check_bibs() """
     start_time = timer()
-    time.sleep( .5 )
+
+    ## access spreadsheet -----------------------
+    credentialed_connection = gspread.service_account_from_dict( CREDENTIALS )
+    sheet = credentialed_connection.open( SPREADSHEET_NAME )
+    ## create new worksheet ---------------------
+    # title: str = str( datetime.datetime.now() )
+    title: str = 'check_results'
+    worksheet = sheet.add_worksheet(
+        title=title, rows=100, cols=20
+        )
+    data = [ 
+        { 
+        'range': 'A1:B1',
+         'values': [['Col-01-Title', 'Col-02-Title']],
+        }, 
+        {
+        'range': 'A2:B2',
+        'values': [['44', '45']],
+        }
+    ]
+    worksheet.batch_update( data, value_input_option='raw' )
     end_time = timer()
     elapsed_write_data: str = str( end_time - start_time )
     log.debug( f'elapsed_write_data, ``{elapsed_write_data}``' )
