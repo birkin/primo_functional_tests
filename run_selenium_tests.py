@@ -278,7 +278,6 @@ def update_gsheet( final_data: dict ) -> None:
     """ (Will) Writes data to gsheet.
         Called by check_bibs() """
     start_time = timer()
-
     ## access spreadsheet -------------------------------------------
     credentialed_connection = gspread.service_account_from_dict( CREDENTIALS )
     sheet = credentialed_connection.open( SPREADSHEET_NAME )
@@ -308,6 +307,13 @@ def update_gsheet( final_data: dict ) -> None:
     log.debug( f'reordered_wrkshts, ``{reordered_wrkshts}``' )
     sheet.reorder_worksheets( reordered_wrkshts )
     ## delete old checks (keeps current and previous) ---------------
+    num_wrkshts: int = len( wrkshts )
+    log.debug( f'num_wrkshts, ``{num_wrkshts}``' )
+    if num_wrkshts > 3:  # keep requested_checks, and two recent checks
+        wrkshts: list = sheet.worksheets()
+        wrkshts_to_delete = wrkshts[3:]
+        for wrksht in wrkshts_to_delete:
+            sheet.del_worksheet( wrksht )
     ## wind down -----------------------------------------------------
     end_time = timer()
     elapsed_write_data: str = str( end_time - start_time )
