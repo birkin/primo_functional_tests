@@ -279,12 +279,12 @@ def update_gsheet( final_data: dict ) -> None:
         Called by check_bibs() """
     start_time = timer()
 
-    ## access spreadsheet -----------------------
+    ## access spreadsheet -------------------------------------------
     credentialed_connection = gspread.service_account_from_dict( CREDENTIALS )
     sheet = credentialed_connection.open( SPREADSHEET_NAME )
-    ## create new worksheet ---------------------
+    ## create new worksheet -----------------------------------------
     # title: str = str( datetime.datetime.now() )
-    title: str = 'check_results'
+    title: str = f'check_results_{datetime.datetime.now()}'
     worksheet = sheet.add_worksheet(
         title=title, rows=100, cols=20
         )
@@ -299,10 +299,27 @@ def update_gsheet( final_data: dict ) -> None:
         }
     ]
     worksheet.batch_update( data, value_input_option='raw' )
+    worksheet.format( 'A1:B1', {'textFormat': {'bold': True}} )
+    worksheet.freeze( rows=1, cols=None )
+    ## re-order worksheets so most recent is 2nd --------------------
+    wrkshts: list = sheet.worksheets()
+    log.debug( f'wrkshts, ``{wrkshts}``' )
+    reordered_wrkshts: list = [ wrkshts[0], wrkshts[-1] ]
+    log.debug( f'reordered_wrkshts, ``{reordered_wrkshts}``' )
+    sheet.reorder_worksheets( reordered_wrkshts )
+    ## delete old checks (keeps current and previous) ---------------
+    ## wind down -----------------------------------------------------
     end_time = timer()
     elapsed_write_data: str = str( end_time - start_time )
     log.debug( f'elapsed_write_data, ``{elapsed_write_data}``' )
     return
+
+# # Sort sheet A -> Z by column 'B'
+# wks.sort((2, 'asc'))
+
+# # Sort range A2:G8 basing on column 'G' A -> Z
+# # and column 'B' Z -> A
+# wks.sort((7, 'asc'), (2, 'des'), range='A2:G8')
 
 
 ## -- script-caller helpers -----------------------------------------
