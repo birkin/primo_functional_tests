@@ -275,7 +275,9 @@ def make_final_tracker_update(
 
 
 def update_gsheet( final_data: dict ) -> None:
-    """ (Will) Writes data to gsheet.
+    """ Writes data to gsheet, then...
+        - sorts the worksheets so the most recent check appears first in the worksheet list.
+        - deletes checks older than the curent and previous checks.
         Called by check_bibs() """
     start_time = timer()
     ## access spreadsheet -------------------------------------------

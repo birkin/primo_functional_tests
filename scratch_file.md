@@ -9,7 +9,11 @@ next...
 
 √ handle dict correctly.
 
-- work on writing TO gsheet.
+√ work on writing TO gsheet.
+
+- write actual data
+
+- maybe attach a 'meta' note to cell A1 or A2?
 
 - identfiy record info.
 
