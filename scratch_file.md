@@ -12,6 +12,9 @@ next...
 √ work on writing TO gsheet.
 
 - write actual data
+    - sort list of dicts by mms_id
+    - for each, write check result
+    - wait... do I really have to sort these?
 
 - maybe attach a 'meta' note to cell A1 or A2?
 
