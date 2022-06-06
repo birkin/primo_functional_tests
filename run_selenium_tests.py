@@ -27,7 +27,7 @@ Usage...
 - $ python3 ./run_selenium_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, datetime, difflib, json, logging, os, pprint, random, time
+import argparse, datetime, difflib, json, logging, os, pprint, random, string
 from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
@@ -88,6 +88,7 @@ OUTPUT_PATH = os.environ['PRIMO_F_TESTS__OUTPUT_FILE_PATH']
 def check_bibs( auth_id: str, password: str, server_type: str ) -> None:
     """ Main manager.
         Instantiates pool of workers, and sends jobs to them. 
+        Finally, reads json file created by process_bib() and updates gsheet.
         Called by ``if __name__ == '__main__':`` """
     start_time_all = datetime.datetime.now()
     ## setup ------------------------------------
@@ -280,6 +281,7 @@ def update_gsheet( final_data: dict ) -> None:
         - deletes checks older than the curent and previous checks.
         Called by check_bibs() """
     start_time = timer()
+    log.debug( f'final_data, ``{pprint.pformat(final_data)}``' )
     ## access spreadsheet -------------------------------------------
     credentialed_connection = gspread.service_account_from_dict( CREDENTIALS )
     sheet = credentialed_connection.open( SPREADSHEET_NAME )
@@ -299,6 +301,29 @@ def update_gsheet( final_data: dict ) -> None:
         'values': [['44', '45']],
         }
     ]
+
+    ## not yet used START -------------------------------------------
+    # num_checks = len( final_data['results']['checks'].keys() )
+    # end_range_column: str = prep_end_range_column( num_checks )
+    # num_bibs = len( final_data['results'] )
+    # data_end_range: str = f'{end_range_column}{num_bibs}'
+    # log.debug( f'data_end_range, ``{data_end_range}``' )
+    # data_values: list = prep_data_values( final_data['results'] )
+    # new_data = [
+    #     { 
+    #         'range': 'A1:C1',
+    #         'values': [ ['mms_id', 'title', 'title_check'] ]
+    #     },
+    #     {
+    #         'range': data_end_range,
+    #         'values': [
+    #             []
+    #         ]
+    #     }
+
+    # ]
+    ## not yet used END ---------------------------------------------
+
     worksheet.batch_update( data, value_input_option='raw' )
     worksheet.format( 'A1:B1', {'textFormat': {'bold': True}} )
     worksheet.freeze( rows=1, cols=None )
@@ -321,6 +346,28 @@ def update_gsheet( final_data: dict ) -> None:
     elapsed_write_data: str = str( end_time - start_time )
     log.debug( f'elapsed_write_data, ``{elapsed_write_data}``' )
     return
+
+    ## end def update_gsheet()
+
+
+def prep_end_range_column( count: int ):
+    """ Returns end-range (for values-range).
+        Called by update_gsheet() """
+    log.debug( f'mms_id_count, ``{count}``' )
+    letters: str = string.ascii_uppercase
+    letters_list: list = list( letters )
+    position = count - 1  # because letters_list is zero-indexed
+    end_range_column: str = str( letters_list[position] )
+    log.debug( f'end_range_column, ``{end_range_column}``' )
+    return end_range_column
+
+
+def prep_data_values( results: list ):
+    """ Sorts list of dicts by key, then for each entry prepares a list of results.
+        Returns list of lists. """
+    log.debug( f'initial_list, ``{pprint.pformat(results)}``' )
+    return ['foo']
+
 
 # # Sort sheet A -> Z by column 'B'
 # wks.sort((2, 'asc'))
