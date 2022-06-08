@@ -303,7 +303,20 @@ def update_gsheet( final_data: dict ) -> None:
     ]
 
     ## not yet used START -------------------------------------------
-    # num_checks = len( final_data['results']['checks'].keys() )
+    ## prep num_checks -- start
+    # some_result = final_data['results'][0]
+    # log.debug( f'some_result, ``{pprint.pformat(some_result)}``' )
+    # assert type(some_result) == dict, type(some_result)
+
+
+    # itms = some_result.items()
+    # log.debug( f'itms, ``{itms}``' )
+
+    # itm = list(itms)[0]
+    # log.debug( f'itm, ``{itm}``' )
+
+    # 1/0
+    # ## prep num_checks -- end
     # end_range_column: str = prep_end_range_column( num_checks )
     # num_bibs = len( final_data['results'] )
     # data_end_range: str = f'{end_range_column}{num_bibs}'
