@@ -304,37 +304,38 @@ def update_gsheet( final_data: dict ) -> None:
 
     ## not yet used START -------------------------------------------
     ## prep num_checks -- start
-    # some_result = final_data['results'][0]
-    # log.debug( f'some_result, ``{pprint.pformat(some_result)}``' )
-    # assert type(some_result) == dict, type(some_result)
+    num_checks = 0
+    some_result: dict = final_data['results'][0]  # for number-of-checks, doesn't matter which result we examine
+    log.debug( f'some_result, ``{pprint.pformat(some_result)}``' )
+    assert type(some_result) == dict, type(some_result)  # key is mms_id, value is various data including a checks-dict
 
+    ( key_mmsid, val_data ) = list( some_result.items() )[0]
+    log.debug( f'key_mmsid, ``{key_mmsid}``' )
+    log.debug( f'val_data, ``{val_data}``' )
 
-    # itms = some_result.items()
-    # log.debug( f'itms, ``{itms}``' )
+    checks: dict = val_data['checks']
+    num_checks = len(  list(checks.keys()) )
+    log.debug( f'num_checks, ``{num_checks}``' )
 
-    # itm = list(itms)[0]
-    # log.debug( f'itm, ``{itm}``' )
+    ## prep num_checks -- end
+    end_range_column: str = prep_end_range_column( num_checks )
+    num_bibs = len( final_data['results'] )
+    data_end_range: str = f'{end_range_column}{num_bibs}'
+    log.debug( f'data_end_range, ``{data_end_range}``' )
+    data_values: list = prep_data_values( final_data['results'] )
+    new_data = [
+        { 
+            'range': 'A1:C1',
+            'values': [ ['mms_id', 'title', 'title_check'] ]
+        },
+        {
+            'range': data_end_range,
+            'values': [
+                []
+            ]
+        }
 
-    # 1/0
-    # ## prep num_checks -- end
-    # end_range_column: str = prep_end_range_column( num_checks )
-    # num_bibs = len( final_data['results'] )
-    # data_end_range: str = f'{end_range_column}{num_bibs}'
-    # log.debug( f'data_end_range, ``{data_end_range}``' )
-    # data_values: list = prep_data_values( final_data['results'] )
-    # new_data = [
-    #     { 
-    #         'range': 'A1:C1',
-    #         'values': [ ['mms_id', 'title', 'title_check'] ]
-    #     },
-    #     {
-    #         'range': data_end_range,
-    #         'values': [
-    #             []
-    #         ]
-    #     }
-
-    # ]
+    ]
     ## not yet used END ---------------------------------------------
 
     worksheet.batch_update( data, value_input_option='raw' )
