@@ -286,60 +286,40 @@ def update_gsheet( final_data: dict ) -> None:
     credentialed_connection = gspread.service_account_from_dict( CREDENTIALS )
     sheet = credentialed_connection.open( SPREADSHEET_NAME )
     ## create new worksheet -----------------------------------------
-    # title: str = str( datetime.datetime.now() )
     title: str = f'check_results_{datetime.datetime.now()}'
     worksheet = sheet.add_worksheet(
         title=title, rows=100, cols=20
         )
-    data = [ 
-        { 
-        'range': 'A1:B1',
-         'values': [['Col-01-Title', 'Col-02-Title']],
-        }, 
-        {
-        'range': 'A2:B2',
-        'values': [['44', '45']],
-        }
-    ]
-
-    ## not yet used START -------------------------------------------
-    ## prep num_checks -- start
+    # data = [ 
+    #     { 
+    #     'range': 'A1:B1',
+    #      'values': [['Col-01-Title', 'Col-02-Title']],
+    #     }, 
+    #     {
+    #     'range': 'A2:B2',
+    #     'values': [['44', '45']],
+    #     }
+    # ]
+    ## prepare range ------------------------------------------------
     num_checks = 0
     some_result: dict = final_data['results'][0]  # for number-of-checks, doesn't matter which result we examine
     log.debug( f'some_result, ``{pprint.pformat(some_result)}``' )
     assert type(some_result) == dict, type(some_result)  # key is mms_id, value is various data including a checks-dict
-
     ( key_mmsid, val_data ) = list( some_result.items() )[0]
     log.debug( f'key_mmsid, ``{key_mmsid}``' )
     log.debug( f'val_data, ``{val_data}``' )
-
     checks: dict = val_data['checks']
     num_checks = len(  list(checks.keys()) )
     log.debug( f'num_checks, ``{num_checks}``' )
-
-    ## prep num_checks -- end
-    end_range_column: str = prep_end_range_column( num_checks )
+    end_range_column: str = prep_end_range_column( num_checks + 2 )  # the plus-2 is for the 'mms_id' and 'title' columns
     num_bibs = len( final_data['results'] )
-    data_end_range: str = f'{end_range_column}{num_bibs}'
+    data_end_range: str = f'{end_range_column}{num_bibs + 1}'  # the plus-1 is for the header-row
     log.debug( f'data_end_range, ``{data_end_range}``' )
-    data_values: list = prep_data_values( final_data['results'] )
-    new_data = [
-        { 
-            'range': 'A1:C1',
-            'values': [ ['mms_id', 'title', 'title_check'] ]
-        },
-        {
-            'range': data_end_range,
-            'values': [
-                []
-            ]
-        }
 
-    ]
-    ## not yet used END ---------------------------------------------
+    data_values: list = prep_data_values( final_data['results'], data_end_range )
 
-    worksheet.batch_update( data, value_input_option='raw' )
-    worksheet.format( 'A1:B1', {'textFormat': {'bold': True}} )
+    worksheet.batch_update( data_values, value_input_option='raw' )
+    worksheet.format( f'A1:{end_range_column}1', {'textFormat': {'bold': True}} )
     worksheet.freeze( rows=1, cols=None )
     ## re-order worksheets so most recent is 2nd --------------------
     wrkshts: list = sheet.worksheets()
@@ -367,7 +347,7 @@ def update_gsheet( final_data: dict ) -> None:
 def prep_end_range_column( count: int ):
     """ Returns end-range (for values-range).
         Called by update_gsheet() """
-    log.debug( f'mms_id_count, ``{count}``' )
+    log.debug( f'checks_count, ``{count}``' )
     letters: str = string.ascii_uppercase
     letters_list: list = list( letters )
     position = count - 1  # because letters_list is zero-indexed
@@ -376,11 +356,32 @@ def prep_end_range_column( count: int ):
     return end_range_column
 
 
-def prep_data_values( results: list ):
+def prep_data_values( results: list, data_end_range: str ):
     """ Sorts list of dicts by key, then for each entry prepares a list of results.
         Returns list of lists. """
     log.debug( f'initial_list, ``{pprint.pformat(results)}``' )
-    return ['foo']
+    log.debug( f'data_end_range, ``{data_end_range}``' )
+    rows = []
+    for entry in results:
+        assert type(entry) == dict
+        ( mmsid_key, data_dict_value ) = entry.items()
+        log.debug( f'mmsid_key, ``{mmsid_key}``' )
+        log.debug( f'data_dict_value, ``{data_dict_value}``' )
+    new_data = [
+        { 
+            'range': 'A1:C1',
+            'values': [ ['mms_id', 'title', 'title_check'] ]
+        },
+        {
+            'range': f'A2:{data_end_range}',
+            'values': [
+                ['44', '45'],
+            ]
+        }
+
+    ]
+    log.debug( f'new_data, ``{new_data}``' ) 
+    return new_data
 
 
 # # Sort sheet A -> Z by column 'B'
