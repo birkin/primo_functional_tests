@@ -364,9 +364,18 @@ def prep_data_values( results: list, data_end_range: str ):
     rows = []
     for entry in results:
         assert type(entry) == dict
-        ( mmsid_key, data_dict_value ) = entry.items()
+        keys_vals: list = list( entry.items() )
+        assert len(keys_vals) == 1
+        ( mmsid_key, data_dict_value ) = keys_vals[0]
         log.debug( f'mmsid_key, ``{mmsid_key}``' )
         log.debug( f'data_dict_value, ``{data_dict_value}``' )
+        row = [ 
+            mmsid_key, 
+            data_dict_value['title_expected'],
+            data_dict_value['checks']['expected_title_found'], 
+            # data_dict_value['url']
+        ]
+        rows.append( row )
     new_data = [
         { 
             'range': 'A1:C1',
@@ -374,9 +383,7 @@ def prep_data_values( results: list, data_end_range: str ):
         },
         {
             'range': f'A2:{data_end_range}',
-            'values': [
-                ['44', '45'],
-            ]
+            'values': rows
         }
 
     ]
