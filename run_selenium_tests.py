@@ -290,33 +290,25 @@ def update_gsheet( final_data: dict ) -> None:
     worksheet = sheet.add_worksheet(
         title=title, rows=100, cols=20
         )
-    # data = [ 
-    #     { 
-    #     'range': 'A1:B1',
-    #      'values': [['Col-01-Title', 'Col-02-Title']],
-    #     }, 
-    #     {
-    #     'range': 'A2:B2',
-    #     'values': [['44', '45']],
-    #     }
-    # ]
     ## prepare range ------------------------------------------------
-    num_checks = 0
-    some_result: dict = final_data['results'][0]  # for number-of-checks, doesn't matter which result we examine
-    log.debug( f'some_result, ``{pprint.pformat(some_result)}``' )
-    assert type(some_result) == dict, type(some_result)  # key is mms_id, value is various data including a checks-dict
-    ( key_mmsid, val_data ) = list( some_result.items() )[0]
-    log.debug( f'key_mmsid, ``{key_mmsid}``' )
-    log.debug( f'val_data, ``{val_data}``' )
-    checks: dict = val_data['checks']
-    num_checks = len(  list(checks.keys()) )
-    log.debug( f'num_checks, ``{num_checks}``' )
-    end_range_column: str = prep_end_range_column( num_checks + 2 )  # the plus-2 is for the 'mms_id' and 'title' columns
+    headers = ['mms_id', 'title', 'title_check']
+    # num_checks = 0
+    # some_result: dict = final_data['results'][0]  # for number-of-checks, doesn't matter which result we examine
+    # log.debug( f'some_result, ``{pprint.pformat(some_result)}``' )
+    # assert type(some_result) == dict, type(some_result)  # key is mms_id, value is various data including a checks-dict
+    # ( key_mmsid, val_data ) = list( some_result.items() )[0]
+    # log.debug( f'key_mmsid, ``{key_mmsid}``' )
+    # log.debug( f'val_data, ``{val_data}``' )
+    # checks: dict = val_data['checks']
+    # num_checks = len(  list(checks.keys()) )
+    # log.debug( f'num_checks, ``{num_checks}``' )
+    # end_range_column: str = prep_end_range_column( num_checks + 2 )  # the plus-2 is for the 'mms_id' and 'title' columns
+    end_range_column: str = prep_end_range_column( len(headers) )
     num_bibs = len( final_data['results'] )
     data_end_range: str = f'{end_range_column}{num_bibs + 1}'  # the plus-1 is for the header-row
     log.debug( f'data_end_range, ``{data_end_range}``' )
 
-    data_values: list = prep_data_values( final_data['results'], data_end_range )
+    data_values: list = prep_data_values( headers, final_data['results'], data_end_range )
     ## update values ------------------------------------------------
     worksheet.batch_update( data_values, value_input_option='raw' )
     ## update formatting --------------------------------------------
@@ -357,7 +349,7 @@ def prep_end_range_column( count: int ):
     return end_range_column
 
 
-def prep_data_values( results: list, data_end_range: str ):
+def prep_data_values( headers: list, results: list, data_end_range: str ):
     """ Sorts list of dicts by key, then for each entry prepares a list of results.
         Returns list of lists. """
     log.debug( f'initial_list, ``{pprint.pformat(results)}``' )
@@ -383,7 +375,7 @@ def prep_data_values( results: list, data_end_range: str ):
     new_data = [
         { 
             'range': 'A1:C1',
-            'values': [ ['mms_id', 'title', 'title_check'] ]
+            'values': [ headers ]
         },
         {
             'range': f'A2:{data_end_range}',
