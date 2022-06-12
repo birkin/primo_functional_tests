@@ -291,12 +291,13 @@ def update_gsheet( final_data: dict ) -> None:
         title=title, rows=100, cols=20
         )
     ## prepare range ------------------------------------------------
-    headers = ['mms_id', 'title', 'title_check']
+    headers = ['mms_id', 'title', 'url', 'title_check']
     end_range_column: str = prep_end_range_column( len(headers) )
     num_bibs = len( final_data['results'] )
     header_end_range: str = f'{end_range_column}1'
     data_end_range: str = f'{end_range_column}{num_bibs + 1}'  # the plus-1 is for the header-row
     log.debug( f'data_end_range, ``{data_end_range}``' )
+    ## prepare data -------------------------------------------------
     data_values: list = prep_data_values( headers, final_data['results'], header_end_range, data_end_range )
     ## update values ------------------------------------------------
     worksheet.batch_update( data_values, value_input_option='raw' )
@@ -354,8 +355,8 @@ def prep_data_values( headers: list, results: list, header_end_range: str, data_
         row = [ 
             mmsid_key, 
             data_dict_value['title_expected'],
+            URL_PATTERN.replace( '{mmsid}', mmsid_key ),
             data_dict_value['checks']['expected_title_found'], 
-            # data_dict_value['url']
         ]
         rows.append( row )
     log.debug( f'rows before sort, ``{rows}``' )

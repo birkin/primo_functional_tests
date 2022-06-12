@@ -11,14 +11,15 @@ next...
 
 √ work on writing TO gsheet.
 
-- write actual data
-    - sort list of dicts by mms_id
-    - for each, write check result
-    - wait... do I really have to sort these?
+√ write actual data
+    √ sort list of dicts by mms_id
+    √ for each, write check result
+
+- show non-found title in red
 
 - maybe attach a 'meta' note to cell A1 or A2?
 
-- identfiy record info.
+- identfiy record info (location/status)
 
 - separate non-logged in & logged-in tests
 
