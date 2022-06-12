@@ -27,7 +27,7 @@ Usage...
 - $ python3 ./run_selenium_tests.py --auth_id AUTH_ID --password PASSWORD --server_type DEV-OR-PROD
 """
 
-import argparse, datetime, difflib, json, logging, os, pprint, random, string
+import argparse, datetime, difflib, json, logging, operator, os, pprint, random, string
 from multiprocessing import current_process, Lock, Pool
 from timeit import default_timer as timer
 
@@ -317,8 +317,9 @@ def update_gsheet( final_data: dict ) -> None:
     log.debug( f'data_end_range, ``{data_end_range}``' )
 
     data_values: list = prep_data_values( final_data['results'], data_end_range )
-
+    ## update values ------------------------------------------------
     worksheet.batch_update( data_values, value_input_option='raw' )
+    ## update formatting --------------------------------------------
     worksheet.format( f'A1:{end_range_column}1', {'textFormat': {'bold': True}} )
     worksheet.freeze( rows=1, cols=None )
     ## re-order worksheets so most recent is 2nd --------------------
@@ -376,6 +377,9 @@ def prep_data_values( results: list, data_end_range: str ):
             # data_dict_value['url']
         ]
         rows.append( row )
+    log.debug( f'rows before sort, ``{rows}``' )
+    sorted_rows: list = sorted( rows, key=operator.itemgetter(0) )
+    log.debug( f'rows after sort, ``{rows}``' )
     new_data = [
         { 
             'range': 'A1:C1',
@@ -383,20 +387,12 @@ def prep_data_values( results: list, data_end_range: str ):
         },
         {
             'range': f'A2:{data_end_range}',
-            'values': rows
+            'values': sorted_rows
         }
 
     ]
     log.debug( f'new_data, ``{new_data}``' ) 
     return new_data
-
-
-# # Sort sheet A -> Z by column 'B'
-# wks.sort((2, 'asc'))
-
-# # Sort range A2:G8 basing on column 'G' A -> Z
-# # and column 'B' Z -> A
-# wks.sort((7, 'asc'), (2, 'des'), range='A2:G8')
 
 
 ## -- script-caller helpers -----------------------------------------
