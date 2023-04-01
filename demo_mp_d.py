@@ -17,7 +17,9 @@ if __name__ == '__main__':
     multiprocessing.set_start_method('forkserver')
     lock = Lock()
     processes = [Process(target=task, args=(i, lock)) for i in range(20)]
+    print( 'starting processes...' )
     for process in processes:
         process.start()
+    print( 'joining processes...' )
     for process in processes:
         process.join()
