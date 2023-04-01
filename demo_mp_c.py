@@ -65,6 +65,7 @@ def process_all():
         print('\t', done_queue.get())
 
     # Tell child processes to stop
+    print( 'putting `STOP` into task-queue...' )
     for i in range(NUMBER_OF_PROCESSES):
         task_queue.put('STOP')
 
