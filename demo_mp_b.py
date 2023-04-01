@@ -60,6 +60,7 @@ def test():
         print('\t', done_queue.get())
 
     # Add more tasks using `put()`
+    print( 'adding more tasks...' )
     for task in TASKS2:
         task_queue.put(task)
 
@@ -68,6 +69,7 @@ def test():
         print('\t', done_queue.get())
 
     # Tell child processes to stop
+    print( 'telling child processes to stop...' )
     for i in range(NUMBER_OF_PROCESSES):
         task_queue.put('STOP')
 
