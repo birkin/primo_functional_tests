@@ -1,4 +1,4 @@
-import time
+import pprint, time
 from timeit import default_timer as timer
 from multiprocessing import Pool
 
@@ -32,9 +32,10 @@ def start_main():
     ]
     with Pool() as pool:
         res = pool.map (process_bib, values)
-    print (res)
     end = timer()
-    print ( f'all elapsed time: ``{end - start}``' )
+    for item in res:
+        print( item )
+    print( f'all elapsed time: ``{end - start}``' )
 
 
 # def square(n) :
